@@ -74,21 +74,34 @@ const UIRenderer = {
         } else {
             const showExplanation = (result.status === 'invalid' || result.status === 'inaccurate' || result.status === 'verified') && result.analysis;
             const explanation = showExplanation ? result.analysis : '-';
-            const needsExpansion = explanation !== '-' && explanation.length > 150;
+            const CHAR_LIMIT = 220;
+            const needsExpansion = explanation !== '-' && explanation.length > CHAR_LIMIT;
 
             statusCell.innerHTML = `<span class="status ${result.status}">${this.getStatusText(result.status)}</span>`;
 
             explanationCell.className = 'explanation-cell';
             explanationCell.setAttribute('data-row', index);
 
-            // Format explanation with proper line breaks
-            const formattedExplanation = explanation !== '-'
+            // Prepare full and truncated HTML safely
+            const fullHtml = explanation !== '-'
                 ? this.escapeHtml(explanation).replace(/\n/g, '<br>')
                 : '-';
 
+            const truncatedHtml = explanation !== '-'
+                ? this.escapeHtml(explanation.slice(0, CHAR_LIMIT)).replace(/\n/g, '<br>') + (explanation.length > CHAR_LIMIT ? '…' : '')
+                : '-';
+
+            // Persist both variants for toggling
+            explanationCell._fullHtml = fullHtml;
+            explanationCell._truncatedHtml = truncatedHtml;
+
+            // Initial render uses truncated when long
+            const initialHtml = needsExpansion ? truncatedHtml : fullHtml;
+            const btnHtml = needsExpansion ? '<span class="expand-btn">Show more</span>' : '';
+
             explanationCell.innerHTML = `
-                <span class="explanation-text">${formattedExplanation}</span>
-                ${needsExpansion ? '<span class="expand-btn">Show more</span>' : ''}
+                <span class="explanation-text">${initialHtml}</span>
+                ${btnHtml}
             `;
 
             // Add click handler for expand button
@@ -110,21 +123,30 @@ const UIRenderer = {
     toggleExplanation(cell, btn) {
         const isExpanded = cell.classList.contains('expanded');
 
-        // Collapse all other explanations
+        // Collapse all other expanded explanations and restore truncated content
         document.querySelectorAll('.explanation-cell.expanded').forEach(c => {
             if (c !== cell) {
                 c.classList.remove('expanded');
                 const otherBtn = c.querySelector('.expand-btn');
+                const otherText = c.querySelector('.explanation-text');
+                if (otherText && typeof c._truncatedHtml === 'string') {
+                    otherText.innerHTML = c._truncatedHtml;
+                }
                 if (otherBtn) otherBtn.textContent = 'Show more';
             }
         });
 
-        // Toggle current explanation
+        // Toggle current explanation content
+        const textSpan = cell.querySelector('.explanation-text');
+        if (!textSpan) return;
+
         if (isExpanded) {
             cell.classList.remove('expanded');
+            if (typeof cell._truncatedHtml === 'string') textSpan.innerHTML = cell._truncatedHtml;
             btn.textContent = 'Show more';
         } else {
             cell.classList.add('expanded');
+            if (typeof cell._fullHtml === 'string') textSpan.innerHTML = cell._fullHtml;
             btn.textContent = 'Show less';
         }
     },

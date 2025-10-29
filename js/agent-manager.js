@@ -231,9 +231,40 @@ const AgentManager = {
         result.suggestedUrl = analysis.suggestedUrl;
         result.exactQuote = analysis.exactQuote || null;
 
-        // If verified, prepend the exact quote to the analysis
-        if (analysis.isCorrect && analysis.exactQuote) {
-            result.analysis = `✓ Exact quote: "${analysis.exactQuote}"\n\n${analysis.reasoning}`;
+        // Harden verification when we have fetched content
+        if (data.pageContent) {
+            const pageText = (data.pageContent.text || '').toLowerCase();
+            const exactQuote = (analysis.exactQuote || '').trim();
+            const hasQuote = exactQuote.length > 0;
+            const quoteInPage = hasQuote && this._includesSanitized(pageText, exactQuote);
+
+            // If model says correct, require a verifiable exact quote present on the page
+            if (analysis.isCorrect) {
+                let gatingFailedReason = '';
+
+                if (!hasQuote || !quoteInPage) {
+                    gatingFailedReason = 'no verifiable exact quote found in fetched content';
+                } else {
+                    // If the context mentions figures (e.g., 79%, 80), ensure the quote contains one of them
+                    const expectedFigures = this._extractFigures(link.context);
+                    if (expectedFigures.length > 0) {
+                        const quoteHasFigure = expectedFigures.some(fig => this._quoteHasFigure(exactQuote, fig));
+                        if (!quoteHasFigure) {
+                            gatingFailedReason = `expected figure not present in the on-page quote (${expectedFigures.join(', ')})`;
+                        }
+                    }
+                }
+
+                if (gatingFailedReason) {
+                    result.status = 'inaccurate';
+                    result.analysis = `Marked as Recheck: ${gatingFailedReason}. ${analysis.reasoning || ''}`.trim();
+                }
+            }
+        }
+
+        // If verified, prepend the exact quote to the analysis (only when quote exists)
+        if (result.status === 'verified' && result.exactQuote) {
+            result.analysis = `✓ Exact quote: "${result.exactQuote}"\n\n${result.analysis}`;
         }
 
         if (result.redirectUrl && data.pageContent) {
@@ -332,21 +363,24 @@ const AgentManager = {
      * @returns {Promise<Object>} Relevance check result
      */
     async checkLinkRelevance(link, pageContent) {
-        const prompt = `You are checking if a link's anchor text matches the content of the page it links to.
+        const prompt = `Task: Decide if the anchor text reasonably describes or relates to the linked page's content.
 
 Anchor Text: ${link.text}
 Link URL: ${link.url}
 
-Page Content:
+Page Content (excerpt):
 ${pageContent.text}
 
-Does the anchor text reasonably describe or relate to the page content?
+Rules
+- Use only the provided content excerpt.
+- True if the anchor text closely matches the page's topic/claims; otherwise false.
 
-Respond in JSON format:
+Output (JSON only):
 {
-    "isRelevant": true/false,
-    "reasoning": "Brief explanation (1 sentence)"
-}`;
+  "isRelevant": true|false,
+  "reasoning": "1 short sentence (<=160 chars)"
+}
+No prose, no extra keys.`;
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -355,11 +389,11 @@ Respond in JSON format:
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-5-nano',
+                model: 'gpt-5-mini',
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a link relevance checker. Always respond with valid JSON.'
+                        content: 'You are a concise link relevance checker. Always output strict JSON only.'
                     },
                     {
                         role: 'user',
@@ -398,60 +432,50 @@ Respond in JSON format:
             // Use direct page content
             const secondarySourceWarning = this.detectSecondarySource(pageContent, link.context);
 
-            prompt = `You are a fact-checking assistant. Analyze if the provided link accurately supports the cited claim.
-
-Claim/Context: ${link.context}
-Link Text: ${link.text}
-Link URL: ${link.url}
-
-Page Content:
-${pageContent.text}
-
-${secondarySourceWarning ? `\nIMPORTANT: This page appears to cite another source. Check if this is a secondary source.\n` : ''}
-
-Links found on page:
-${pageContent.links.slice(0, 10).map(l => `- [${l.text}](${l.url})`).join('\n')}
-
-Verification Steps:
-1. First, check if the KEY FACTS (numbers, statistics, quotes, specific claims) from the context appear on the page
-2. Then, verify if the claim is reasonably supported by what's written on the page
-3. Be lenient with paraphrasing - if the core facts match, the citation is correct
-4. Only mark as INCORRECT if:
-   - The specific statistic/fact is NOT found on the page
-   - The page says something that contradicts the claim
-   - The page is about a completely different topic
-5. Check if this is a secondary source citing another source - if so, identify the primary source
-
-IMPORTANT: If the key facts match (e.g., same percentage, same organization, same finding), the citation is CORRECT even if the wording differs slightly or the context is paraphrased.
-
-CRITICAL: If the citation is CORRECT (verified), you MUST extract the EXACT sentence or sentences from the page content where the statistic/fact appears. Copy it word-for-word - do not paraphrase or hallucinate. If you cannot find the exact quote, mark as incorrect.
-
-Respond in JSON format:
-{
-    "isCorrect": true/false,
-    "reasoning": "Explanation (2-3 sentences). Start with whether the key facts were found. If this is a secondary source citing another link, mention: 'This page mentions the information but cites [source name/link] as the original source.'",
-    "exactQuote": "The EXACT sentence(s) from the page where this fact appears. Only include if isCorrect is true. Must be verbatim from page content - no paraphrasing.",
-    "suggestedUrl": "If this is a secondary source, provide the primary source URL here, otherwise null"
-}`;
-        } else if (searchResults) {
-            // Use Perplexity search results
-            prompt = `You are a fact-checking assistant. Analyze if the provided link is appropriate for the given context.
+            prompt = `Task: Determine if the link supports the claim in context using the provided page content.
 
 Context: ${link.context}
 Link Text: ${link.text}
 Link URL: ${link.url}
 
-Factual Information from Search:
+Page Content (excerpt):
+${pageContent.text}
+
+Links on Page (sample):
+${pageContent.links.slice(0, 10).map(l => `- ${l.text} -> ${l.url}`).join('\n')}
+
+Decision Rules
+1) Correct if key facts in the context (numbers, entities, quotes, findings) appear in the page content or close paraphrase without contradiction.
+2) Incorrect if key facts are absent, contradicted, or the page is about a different topic.
+3) ${secondarySourceWarning ? 'If this looks like a secondary source, prefer the primary source if visible among the links.' : 'If the page appears to cite another source, note it.'}
+4) If you mark as correct, include the exact quote (verbatim) from the provided content; otherwise leave exactQuote null.
+
+Output (JSON only):
+{
+  "isCorrect": true|false,
+  "reasoning": "1-2 sentences (<=240 chars). Start with whether key facts were found.",
+  "exactQuote": "Verbatim sentence(s) from the excerpt if isCorrect=true, else null",
+  "suggestedUrl": "Primary source URL if clearly present in the listed links, else null"
+}
+No prose, no extra keys.`;
+        } else if (searchResults) {
+            // Use Perplexity search results
+            prompt = `Task: Based on the search summary, assess whether the link plausibly supports the context.
+
+Context: ${link.context}
+Link Text: ${link.text}
+Link URL: ${link.url}
+
+Search Summary:
 ${searchResults}
 
-Analyze if the link is likely accurate based on the search results.
-
-Respond in JSON format:
+Output (JSON only):
 {
-    "isCorrect": true/false,
-    "reasoning": "Brief explanation (1-2 sentences)",
-    "suggestedUrl": null
-}`;
+  "isCorrect": true|false,
+  "reasoning": "1 sentence (<=200 chars)",
+  "suggestedUrl": null
+}
+No prose, no extra keys.`;
         } else {
             // No content available
             return {
@@ -468,11 +492,11 @@ Respond in JSON format:
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'gpt-5-nano',
+                model: 'gpt-5-mini',
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a fact-checking assistant. Always respond with valid JSON.'
+                        content: 'You are a concise fact-checking assistant. Always output strict JSON only.'
                     },
                     {
                         role: 'user',
@@ -522,6 +546,41 @@ Respond in JSON format:
         ];
 
         return secondaryIndicators.some(indicator => text.includes(indicator));
+    },
+
+    /**
+     * Extract numeric figures (e.g., 79, 80) from a text, including percentages.
+     * @param {string} text
+     * @returns {Array<string>} unique figures as strings (e.g., ["79", "80"]).
+     */
+    _extractFigures(text) {
+        if (!text) return [];
+        const matches = [...String(text).matchAll(/(\d{1,3}(?:\.\d+)?)/g)].map(m => m[1]);
+        const unique = Array.from(new Set(matches));
+        return unique;
+    },
+
+    /**
+     * Check if a quote contains a figure (as digits) or a digit+percent variant.
+     * @param {string} quote
+     * @param {string} figure
+     */
+    _quoteHasFigure(quote, figure) {
+        const q = String(quote);
+        const re = new RegExp(`(?<![\n\r\d])${figure}(?:\s*%){0,1}(?![\d])`);
+        return re.test(q);
+    },
+
+    /**
+     * Case-insensitive inclusion with normalized whitespace.
+     * @param {string} haystackLower - pre-lowered haystack
+     * @param {string} needleRaw
+     */
+    _includesSanitized(haystackLower, needleRaw) {
+        const collapse = s => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
+        const needle = collapse(needleRaw);
+        const hay = haystackLower.replace(/\s+/g, ' ').trim();
+        return needle.length > 0 && hay.includes(needle);
     },
 
     /**

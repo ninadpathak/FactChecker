@@ -99,39 +99,29 @@ const LinkExtractor = {
                 url: link.url
             }));
 
-            const prompt = `You are analyzing links to determine if they are CITATIONS (sources for data/claims/statistics) or REGULAR LINKS (general hyperlinks).
+            const prompt = `Task: Classify each link as a CITATION (used as a source for a factual claim) or a REGULAR LINK (general reference).
 
-A link is a CITATION if:
-- The context cites it as a source for data, statistics, research findings, or claims
-- It contains phrases like "according to", "study found", "research shows", "survey by", "data from", "found that", etc.
-- It's used to back up a factual claim with numbers, percentages, or research results
-- The link is presented as evidence or proof for a statement
+Definitions
+- CITATION: Used to support a specific fact/claim/statistic (e.g., "according to", "study found", "research shows", "survey by", numbers/percentages).
+- REGULAR LINK: General reference/related reading; not presented as evidence for a specific claim.
 
-A link is a REGULAR LINK if:
-- It's just a reference to related content
-- It's a general hyperlink for further reading
-- It's not being used as a source of evidence for a specific claim
+Guidelines
+- Decide using only the provided context around each link.
+- If uncertain, prefer REGULAR LINK (isCitation = false).
 
-EXAMPLES:
-- "According to a [PwC survey](url), 79% of organizations..." → CITATION (citing survey data)
-- "[McKinsey research](url) found that nearly 80%..." → CITATION (citing research findings)
-- "Read more about [AI trends](url)" → REGULAR LINK (just a reference)
-- "[Click here](url) for details" → REGULAR LINK (general link)
-
-Analyze these ${links.length} links:
-
+Items (${links.length}):
 ${linksData.map(l => `[${l.index}] Context: "${l.context}"
-   Link Text: "${l.linkText}"
-   URL: ${l.url}`).join('\n\n')}
+Link Text: "${l.linkText}"
+URL: ${l.url}`).join('\n\n')}
 
-Respond with a JSON object containing a "links" array:
+Output (JSON only):
 {
   "links": [
-    {"index": 0, "isCitation": true},
-    {"index": 1, "isCitation": false},
-    ...
+    {"index": 0, "isCitation": true|false},
+    ... one object for each index 0..${links.length - 1}
   ]
-}`;
+}
+No prose, no extra fields.`;
 
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -180,7 +170,7 @@ Respond with a JSON object containing a "links" array:
                 }
             });
 
-            console.log(`Classified ${links.length} links using GPT-4o-mini`);
+            console.log(`Classified ${links.length} links using gpt-5-nano`);
             return links;
 
         } catch (error) {
