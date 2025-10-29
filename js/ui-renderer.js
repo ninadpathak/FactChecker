@@ -72,7 +72,7 @@ const UIRenderer = {
         } else if (result.status === 'checking') {
             statusCell.innerHTML = '<span class="status-spinner"></span><span class="status checking">Checking...</span>';
         } else {
-            const showExplanation = (result.status === 'invalid' || result.status === 'inaccurate') && result.analysis;
+            const showExplanation = (result.status === 'invalid' || result.status === 'inaccurate' || result.status === 'verified') && result.analysis;
             const explanation = showExplanation ? result.analysis : '-';
             const needsExpansion = explanation !== '-' && explanation.length > 150;
 
@@ -80,8 +80,14 @@ const UIRenderer = {
 
             explanationCell.className = 'explanation-cell';
             explanationCell.setAttribute('data-row', index);
+
+            // Format explanation with proper line breaks
+            const formattedExplanation = explanation !== '-'
+                ? this.escapeHtml(explanation).replace(/\n/g, '<br>')
+                : '-';
+
             explanationCell.innerHTML = `
-                <span class="explanation-text">${this.escapeHtml(explanation)}</span>
+                <span class="explanation-text">${formattedExplanation}</span>
                 ${needsExpansion ? '<span class="expand-btn">Show more</span>' : ''}
             `;
 

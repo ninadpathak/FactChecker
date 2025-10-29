@@ -345,6 +345,7 @@ table td:nth-child(5) { /* Explanation column */
     max-height: 60px;
     overflow: hidden;
     position: relative;
+    line-height: 1.6;
 }
 
 table td.expanded {

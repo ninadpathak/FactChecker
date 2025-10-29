@@ -229,6 +229,12 @@ const AgentManager = {
         result.status = analysis.isCorrect ? 'verified' : 'inaccurate';
         result.analysis = analysis.reasoning;
         result.suggestedUrl = analysis.suggestedUrl;
+        result.exactQuote = analysis.exactQuote || null;
+
+        // If verified, prepend the exact quote to the analysis
+        if (analysis.isCorrect && analysis.exactQuote) {
+            result.analysis = `✓ Exact quote: "${analysis.exactQuote}"\n\n${analysis.reasoning}`;
+        }
 
         if (result.redirectUrl && data.pageContent) {
             result.analysis += ` Note: Link redirects to ${result.redirectUrl}`;
@@ -418,10 +424,13 @@ Verification Steps:
 
 IMPORTANT: If the key facts match (e.g., same percentage, same organization, same finding), the citation is CORRECT even if the wording differs slightly or the context is paraphrased.
 
+CRITICAL: If the citation is CORRECT (verified), you MUST extract the EXACT sentence or sentences from the page content where the statistic/fact appears. Copy it word-for-word - do not paraphrase or hallucinate. If you cannot find the exact quote, mark as incorrect.
+
 Respond in JSON format:
 {
     "isCorrect": true/false,
     "reasoning": "Explanation (2-3 sentences). Start with whether the key facts were found. If this is a secondary source citing another link, mention: 'This page mentions the information but cites [source name/link] as the original source.'",
+    "exactQuote": "The EXACT sentence(s) from the page where this fact appears. Only include if isCorrect is true. Must be verbatim from page content - no paraphrasing.",
     "suggestedUrl": "If this is a secondary source, provide the primary source URL here, otherwise null"
 }`;
         } else if (searchResults) {
