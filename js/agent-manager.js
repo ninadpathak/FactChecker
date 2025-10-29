@@ -384,11 +384,19 @@ No prose, no extra keys.`;
         });
 
         if (!response.ok) {
+            let errorDetails = '';
+            try {
+                const errorData = await response.json();
+                errorDetails = errorData.error?.message || '';
+            } catch (e) {}
+
             const errorMsg = response.status === 404
                 ? 'AI model not found'
                 : response.status === 401
                 ? 'Invalid API key'
                 : `API error ${response.status}`;
+
+            console.error('Link relevance check error:', response.status, errorDetails);
             return { isRelevant: true, reasoning: `Could not verify relevance (${errorMsg}).` };
         }
 
@@ -460,6 +468,14 @@ No prose, no extra keys.`;
         });
 
         if (!response.ok) {
+            let errorDetails = '';
+            try {
+                const errorData = await response.json();
+                errorDetails = errorData.error?.message || JSON.stringify(errorData);
+            } catch (e) {
+                errorDetails = await response.text();
+            }
+
             const errorMsg = response.status === 404
                 ? 'AI model not found. Please check your API configuration.'
                 : response.status === 401
@@ -467,6 +483,8 @@ No prose, no extra keys.`;
                 : response.status === 429
                 ? 'Rate limit exceeded. Please try again later.'
                 : `AI API error: ${response.status}`;
+
+            console.error('AI API error:', response.status, errorDetails);
             throw new Error(errorMsg);
         }
 
