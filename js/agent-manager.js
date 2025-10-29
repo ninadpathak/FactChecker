@@ -546,7 +546,7 @@ No prose, no extra keys.`;
 
     /**
      * Provider-agnostic chat completion helper.
-     * Uses OpenAI if configured, otherwise falls back to OpenRouter (DeepSeek v3.1 free).
+     * Uses OpenAI if configured, otherwise falls back to OpenRouter (Minimax M2 free).
      * @param {Object} opts
      * @param {string} opts.modelOpenAI - OpenAI model name when using OpenAI
      * @param {Array} opts.messages - chat messages array
@@ -574,8 +574,9 @@ No prose, no extra keys.`;
             });
         }
 
-        // No OpenAI key: call server proxy for OpenRouter DeepSeek
-        const requestBody = { model: 'deepseek/deepseek-chat-v3.1:free', messages };
+        // No OpenAI key: call server proxy for OpenRouter Minimax M2
+        // Note: OpenRouter doesn't support response_format, we rely on prompt engineering for JSON
+        const requestBody = { model: 'minimax/minimax-m2:free', messages };
         if (temperature !== undefined) {
             requestBody.temperature = temperature;
         }

@@ -2,7 +2,7 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
     const messages = body?.messages;
-    const model = body?.model || 'deepseek/deepseek-chat-v3.1:free';
+    const model = body?.model || 'minimax/minimax-m2:free';
     const temperature = body?.temperature;
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -16,7 +16,7 @@ export async function onRequestPost({ request, env }) {
 
     const origin = new URL(request.url).origin;
 
-    // Build request body
+    // Build request body - OpenRouter API format
     const requestBody = { model, messages };
     if (temperature !== undefined) {
       requestBody.temperature = temperature;
