@@ -575,10 +575,15 @@ No prose, no extra keys.`;
         }
 
         // No OpenAI key: call server proxy for OpenRouter DeepSeek
+        const requestBody = { model: 'deepseek/deepseek-chat-v3.1:free', messages };
+        if (temperature !== undefined) {
+            requestBody.temperature = temperature;
+        }
+
         return fetch('/api/openrouter', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
+            body: JSON.stringify(requestBody)
         });
     }
 };

@@ -3,6 +3,7 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const messages = body?.messages;
     const model = body?.model || 'deepseek/deepseek-chat-v3.1:free';
+    const temperature = body?.temperature;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing messages array' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
@@ -15,6 +16,12 @@ export async function onRequestPost({ request, env }) {
 
     const origin = new URL(request.url).origin;
 
+    // Build request body
+    const requestBody = { model, messages };
+    if (temperature !== undefined) {
+      requestBody.temperature = temperature;
+    }
+
     const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -23,7 +30,7 @@ export async function onRequestPost({ request, env }) {
         'X-Title': 'FactChecker 2.0',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ model, messages })
+      body: JSON.stringify(requestBody)
     });
 
     const text = await upstream.text();
