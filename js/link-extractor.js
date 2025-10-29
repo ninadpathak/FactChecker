@@ -157,12 +157,17 @@ Output (JSON only):
 }
 No prose, no extra fields.`;
 
+            // Simple provider selection: OpenAI if a key exists in localStorage or passed in; otherwise OpenRouter via server proxy
+            const storedOpenAI = (() => {
+                try { return localStorage.getItem('factchecker_openai_key'); } catch (_) { return null; }
+            })();
+
             let response;
-            if (openaiApiKey) {
+            if (storedOpenAI || openaiApiKey) {
                 response = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${openaiApiKey}`,
+                        'Authorization': `Bearer ${storedOpenAI || openaiApiKey}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -175,31 +180,7 @@ No prose, no extra fields.`;
                         temperature: 0.2
                     })
                 });
-            } else if (openrouterApiKey) {
-                const headers = {
-                    'Authorization': `Bearer ${openrouterApiKey}`,
-                    'Content-Type': 'application/json'
-                };
-                try {
-                    if (typeof window !== 'undefined') {
-                        headers['HTTP-Referer'] = window.location.origin;
-                        headers['X-Title'] = document.title || 'FactChecker 2.0';
-                    }
-                } catch (_) {}
-
-                response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers,
-                    body: JSON.stringify({
-                        model: 'deepseek/deepseek-chat-v3.1:free',
-                        messages: [
-                            { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with strict JSON only.' },
-                            { role: 'user', content: prompt }
-                        ]
-                    })
-                });
             } else {
-                // Try server-side proxy on same origin (Cloudflare Pages Function)
                 try {
                     response = await fetch('/api/openrouter', {
                         method: 'POST',

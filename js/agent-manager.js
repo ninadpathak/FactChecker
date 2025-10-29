@@ -550,90 +550,28 @@ No prose, no extra keys.`;
      * @returns {Promise<Response>} fetch response
      */
     async _chatCompletion({ modelOpenAI, messages }) {
-        const isTransient = (s) => [429, 500, 502, 503, 504].includes(Number(s));
-        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        // Simple strategy: use OpenAI if a key exists (either passed to AgentManager or in localStorage), else use OpenRouter proxy
+        let openaiKey = this.openaiApiKey;
+        try {
+            if (!openaiKey) openaiKey = localStorage.getItem('factchecker_openai_key') || '';
+        } catch (_) {}
 
-        const tryOpenAI = async () => {
-            if (!this.openaiApiKey) return null;
-            const doFetch = () => fetch('https://api.openai.com/v1/chat/completions', {
+        if (openaiKey) {
+            return fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${this.openaiApiKey}`,
+                    'Authorization': `Bearer ${openaiKey}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ model: modelOpenAI, messages, response_format: { type: 'json_object' } })
             });
-            try {
-                let resp = await doFetch();
-                if (!resp.ok && isTransient(resp.status)) {
-                    await sleep(350);
-                    resp = await doFetch();
-                }
-                return resp;
-            } catch (e) {
-                return null;
-            }
-        };
-
-        const tryOpenRouterExternal = async () => {
-            if (!this.openrouterApiKey) return null;
-            const headers = { 'Authorization': `Bearer ${this.openrouterApiKey}`, 'Content-Type': 'application/json' };
-            try {
-                if (typeof window !== 'undefined') {
-                    headers['HTTP-Referer'] = window.location.origin;
-                    headers['X-Title'] = document.title || 'FactChecker 2.0';
-                }
-            } catch (_) {}
-            const doFetch = () => fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST', headers,
-                body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
-            });
-            try {
-                let resp = await doFetch();
-                if (!resp.ok && isTransient(resp.status)) {
-                    await sleep(350);
-                    resp = await doFetch();
-                }
-                return resp;
-            } catch (e) {
-                return null;
-            }
-        };
-
-        const tryProxy = async () => {
-            const doFetch = () => fetch('/api/openrouter', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
-            });
-            try {
-                let resp = await doFetch();
-                if (!resp.ok && isTransient(resp.status)) {
-                    await sleep(350);
-                    resp = await doFetch();
-                }
-                return resp;
-            } catch (e) {
-                return null;
-            }
-        };
-
-        // Priority: OpenAI → OpenRouter (client key) → Proxy
-        const attempts = [];
-        if (this.openaiApiKey) attempts.push(tryOpenAI);
-        if (this.openrouterApiKey) attempts.push(tryOpenRouterExternal);
-        attempts.push(tryProxy);
-
-        for (const attempt of attempts) {
-            const resp = await attempt();
-            if (resp && resp.ok) return resp;
         }
 
-        // If we reached here, try to return the last non-null response for error/context
-        for (const attempt of attempts.reverse()) {
-            const resp = await attempt();
-            if (resp) return resp;
-        }
-
-        throw new Error('No chat provider configured or all providers failed');
+        // No OpenAI key: call server proxy for OpenRouter DeepSeek
+        return fetch('/api/openrouter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
+        });
     }
 };
