@@ -117,6 +117,14 @@ header p {
     font-weight: 400;
 }
 
+/* Section Headings */
+.container h2 {
+    font-size: 1rem;
+    margin: 8px 0 10px 0;
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
 /* Floating Label Input Group */
 .input-group {
     position: relative;
@@ -235,6 +243,40 @@ header p {
     overflow-y: auto;
     margin-bottom: 12px;
 }
+
+/* Info Card / FAQ */
+.info-card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e5ddd5;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    margin-top: 16px;
+}
+
+.faq-section .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.faq-item {
+    border: 1px dashed #eadfd6;
+    border-radius: 6px;
+    background: #fffdfb;
+}
+
+.faq-item summary {
+    cursor: pointer;
+    padding: 10px 12px;
+    list-style: none;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item[open] summary { color: #8b4513; }
+.faq-item p, .faq-item code { padding: 0 12px 12px 12px; }
+.faq-item code { background: #f5f1ed; padding: 2px 4px; border-radius: 4px; }
 
 /* Inline Spinner for Status */
 .status-spinner {
@@ -386,6 +428,23 @@ table td a {
 table td a:hover {
     color: #dc3545;
 }
+
+/* Footer */
+.site-footer {
+    margin-top: 20px;
+    padding: 16px 12px;
+    color: #5a5a5a;
+}
+.site-footer .footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-size: 0.8125rem;
+}
+.site-footer a { color: #1a1a1a; text-decoration: none; }
+.site-footer a:hover { color: #dc3545; text-decoration: underline; }
+.site-footer .dot { color: #b6aca4; }
 
 /* Link Type Badges */
 .link-type {
