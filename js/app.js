@@ -6,11 +6,13 @@
 const App = {
     currentMarkdown: null,
     currentLinks: [],
+    mainLayout: null,
 
     /**
      * Initialize the application
      */
     init() {
+        this.mainLayout = document.getElementById('main-layout');
         this.loadApiKeys();
         this.attachEventListeners();
         console.log('FactChecker 2.0 initialized');
@@ -144,11 +146,18 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
         const linksSection = document.getElementById('links-section');
         const verifyBtn = document.getElementById('verify-btn');
 
-        linksSection.classList.add('hidden');
-        verifyBtn.classList.add('hidden');
+        if (linksSection) {
+            linksSection.classList.add('hidden');
+            linksSection.classList.remove('visible');
+        }
+        if (verifyBtn) {
+            verifyBtn.classList.add('hidden');
+        }
 
         this.currentMarkdown = null;
         this.currentLinks = [];
+
+        this.updateLayout(false);
     },
 
     /**
@@ -205,6 +214,9 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
             // Display links table with status columns
             UIRenderer.renderLinksTable(this.currentLinks);
 
+            // Adjust layout based on results
+            this.updateLayout(this.currentLinks.length > 0);
+
             console.log(`Extracted and classified ${this.currentLinks.length} unique links`);
         } catch (error) {
             console.error('Error processing text:', error);
@@ -258,6 +270,23 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
         } finally {
             // Re-enable button
             verifyBtn.disabled = false;
+        }
+    },
+
+    /**
+     * Update the main layout position based on whether results are present
+     * @param {boolean} hasResults
+     */
+    updateLayout(hasResults) {
+        const layout = this.mainLayout || document.getElementById('main-layout');
+        if (!layout) return;
+
+        if (hasResults) {
+            layout.classList.remove('initial');
+            layout.classList.add('expanded');
+        } else {
+            layout.classList.add('initial');
+            layout.classList.remove('expanded');
         }
     }
 };

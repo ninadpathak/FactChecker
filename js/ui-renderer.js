@@ -16,6 +16,8 @@ const UIRenderer = {
         if (links.length === 0) {
             output.innerHTML = '<p style="color: #718096; font-size: 0.875rem;">No links found in the text.</p>';
             section.classList.remove('hidden');
+            section.classList.add('visible');
+            verifyBtn.classList.add('hidden');
             return;
         }
 
@@ -48,6 +50,7 @@ const UIRenderer = {
         output.innerHTML = '';
         output.appendChild(table);
         section.classList.remove('hidden');
+        section.classList.add('visible');
         verifyBtn.classList.remove('hidden');
     },
 

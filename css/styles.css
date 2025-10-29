@@ -171,12 +171,39 @@ header p {
     color: #dc3545;
 }
 
-/* Main Content: Side by Side */
+/* Main Content Layout */
 .main-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     gap: 16px;
     margin-bottom: 16px;
+    transition: padding 0.4s ease, gap 0.4s ease;
+    padding: 0;
+}
+
+.main-content.initial .text-input,
+.main-content.initial .links-verification {
+    width: 80%;
+    max-width: 900px;
+}
+
+.main-content.expanded {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0 10%;
+}
+
+.main-content.expanded .text-input,
+.main-content.expanded .links-verification {
+    width: 40%;
+    max-width: none;
+}
+
+.text-input,
+.links-verification {
+    transition: width 0.4s ease, transform 0.4s ease, opacity 0.4s ease;
 }
 
 /* Sample Text Buttons */
@@ -235,6 +262,13 @@ header p {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     display: flex;
     flex-direction: column;
+    opacity: 0;
+    transform: translateY(12px);
+}
+
+.links-verification.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* Links Output */
@@ -521,7 +555,17 @@ table td a:hover {
 /* Responsive Design */
 @media (max-width: 968px) {
     .main-content {
-        grid-template-columns: 1fr;
+        flex-direction: column;
+        padding: 0;
+        gap: 16px;
+    }
+
+    .main-content.initial .text-input,
+    .main-content.initial .links-verification,
+    .main-content.expanded .text-input,
+    .main-content.expanded .links-verification {
+        width: 100%;
+        max-width: none;
     }
 
     .api-inputs {
