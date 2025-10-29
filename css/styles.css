@@ -177,33 +177,38 @@ header p {
     flex-direction: column;
     align-items: center;
     gap: 16px;
-    margin-bottom: 16px;
-    transition: padding 0.4s ease, gap 0.4s ease;
-    padding: 0;
+    margin-bottom: 24px;
+    transition: padding 0.3s ease, gap 0.3s ease;
+    padding: 0 4%;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .main-content.initial .text-input,
 .main-content.initial .links-verification {
-    width: 80%;
-    max-width: 900px;
+    width: 92%;
+    max-width: 1100px;
 }
 
 .main-content.expanded {
     flex-direction: row;
-    justify-content: space-between;
+    justify-content: center;
     align-items: flex-start;
-    padding: 0 10%;
+    gap: 28px;
+    padding: 0 4%;
 }
 
 .main-content.expanded .text-input,
 .main-content.expanded .links-verification {
-    width: 40%;
-    max-width: none;
+    flex: 1 1 50%;
+    width: auto;
+    max-width: 760px;
+    min-width: 0;
 }
 
 .text-input,
 .links-verification {
-    transition: width 0.4s ease, transform 0.4s ease, opacity 0.4s ease;
+    transition: width 0.35s ease, flex-basis 0.35s ease, transform 0.35s ease, opacity 0.35s ease;
 }
 
 /* Sample Text Buttons */
@@ -289,8 +294,9 @@ header p {
 }
 
 .faq-section {
-    width: 30%;
-    margin: 24px auto 0 auto;
+    width: 60%;
+    max-width: 900px;
+    margin: 32px auto 0 auto;
 }
 
 .faq-section .faq-list {
@@ -470,16 +476,19 @@ table td a:hover {
 
 /* Footer */
 .site-footer {
-    margin-top: 20px;
-    padding: 16px 12px;
+    margin-top: 24px;
+    padding: 20px 12px;
     color: #5a5a5a;
+    text-align: center;
 }
 .site-footer .footer-inner {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
     align-items: center;
     font-size: 0.8125rem;
+    width: 100%;
 }
 .site-footer a { color: #1a1a1a; text-decoration: none; }
 .site-footer a:hover { color: #dc3545; text-decoration: underline; }
