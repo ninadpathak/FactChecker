@@ -199,8 +199,22 @@ No prose, no extra fields.`;
                     })
                 });
             } else {
-                // No keys available
-                return this.fallbackClassification(links);
+                // Try server-side proxy on same origin (Cloudflare Pages Function)
+                try {
+                    response = await fetch('/api/openrouter', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: 'deepseek/deepseek-chat-v3.1:free',
+                            messages: [
+                                { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with strict JSON only.' },
+                                { role: 'user', content: prompt }
+                            ]
+                        })
+                    });
+                } catch (e) {
+                    return this.fallbackClassification(links);
+                }
             }
 
             if (!response.ok) {

@@ -1,0 +1,42 @@
+export async function onRequestPost({ request, env }) {
+  try {
+    const body = await request.json();
+    const messages = body?.messages;
+    const model = body?.model || 'deepseek/deepseek-chat-v3.1:free';
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: 'Missing messages array' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    const apiKey = env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY not configured' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    const origin = new URL(request.url).origin;
+
+    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': origin,
+        'X-Title': 'FactChecker 2.0',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ model, messages })
+    });
+
+    const text = await upstream.text();
+    return new Response(text, { status: upstream.status, headers: { 'Content-Type': 'application/json' } });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err && err.message || err) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
+}
+
+// Optional: support preflight or accidental GET
+export async function onRequestOptions() {
+  return new Response(null, { status: 204 });
+}
+
+export const onRequestGet = () => new Response(JSON.stringify({ ok: true, route: '/api/openrouter' }), { headers: { 'Content-Type': 'application/json' } });
+

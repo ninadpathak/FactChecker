@@ -587,6 +587,17 @@ No prose, no extra keys.`;
             });
         }
 
+        // Attempt server-side proxy on Cloudflare Pages
+        try {
+            return fetch('/api/openrouter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
+            });
+        } catch (e) {
+            // fallthrough to error below
+        }
+
         // No provider available
         return Promise.reject(new Error('No chat provider configured'));
     }
