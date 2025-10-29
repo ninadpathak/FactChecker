@@ -298,7 +298,7 @@ const AgentManager = {
     /**
      * Fetch and extract page content
      * @param {string} url - URL to fetch
-     * @returns {Promise<string>} Extracted text content
+     * @returns {Promise<Object>} Extracted text content and links
      */
     async fetchPageContent(url) {
         const response = await fetch(this.corsProxyUrl + encodeURIComponent(url));
@@ -308,34 +308,45 @@ const AgentManager = {
         }
 
         const data = await response.json();
-        const html = data.contents;
+        let html = data.contents;
 
-        // Extract text content from HTML
+        // Fast pre-cleaning: remove large unwanted sections before parsing
+        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                   .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                   .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+                   .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
+                   .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
+                   .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+
+        // Extract just the body content before parsing
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+        if (bodyMatch) {
+            html = bodyMatch[1];
+        }
+
+        // Parse only the cleaned body content
         const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
+        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+        const container = doc.body.firstChild;
 
-        // Remove script, style, and other non-content elements
-        const unwantedTags = ['script', 'style', 'nav', 'header', 'footer', 'aside', 'iframe'];
-        unwantedTags.forEach(tag => {
-            const elements = doc.querySelectorAll(tag);
-            elements.forEach(el => el.remove());
+        // Remove remaining unwanted elements
+        ['aside', 'svg', 'noscript'].forEach(tag => {
+            container.querySelectorAll(tag).forEach(el => el.remove());
         });
 
-        // Extract main content (prefer article, main, or body)
-        const mainContent = doc.querySelector('article, main, [role="main"]') || doc.body;
+        // Extract main content (prefer article, main, or use container)
+        const mainContent = container.querySelector('article, main, [role="main"]') || container;
 
-        // Extract text and preserve links
-        let textContent = mainContent.innerText || mainContent.textContent;
+        // Extract text more efficiently
+        const textContent = (mainContent.innerText || mainContent.textContent).substring(0, 3000);
 
-        // Find all links in the content
+        // Extract only first 10 links (we only use up to 10 anyway)
         const links = Array.from(mainContent.querySelectorAll('a[href]'))
+            .slice(0, 10)
             .map(a => ({ text: a.textContent.trim(), url: a.href }))
             .filter(l => l.text && l.url);
 
-        return {
-            text: textContent.substring(0, 3000), // Limit to 3000 chars
-            links: links
-        };
+        return { text: textContent, links };
     },
 
     /**
