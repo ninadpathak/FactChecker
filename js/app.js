@@ -100,7 +100,12 @@ const App = {
         keys.forEach(({ id, storage }) => {
             const el = document.getElementById(id);
             const value = el ? el.value.trim() : '';
-            if (value) localStorage.setItem(storage, value);
+            if (value) {
+                localStorage.setItem(storage, value);
+            } else {
+                // Remove the key from storage when input is cleared
+                localStorage.removeItem(storage);
+            }
         });
 
         if (showConfirmation) {
