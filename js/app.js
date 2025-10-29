@@ -42,7 +42,7 @@ const App = {
         saveKeysBtn.addEventListener('click', () => this.saveApiKeys(true));
 
         // Auto-save API keys on input change
-        ['openai-key', 'perplexity-key'].forEach(id => {
+        ['openai-key'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.saveApiKeys(false));
         });
 
@@ -77,8 +77,7 @@ const App = {
      */
     loadApiKeys() {
         const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' },
-            { id: 'perplexity-key', storage: 'factchecker_perplexity_key' }
+            { id: 'openai-key', storage: 'factchecker_openai_key' }
         ];
 
         keys.forEach(({ id, storage }) => {
@@ -93,8 +92,7 @@ const App = {
      */
     saveApiKeys(showConfirmation = false) {
         const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' },
-            { id: 'perplexity-key', storage: 'factchecker_perplexity_key' }
+            { id: 'openai-key', storage: 'factchecker_openai_key' }
         ];
 
         keys.forEach(({ id, storage }) => {
@@ -110,7 +108,7 @@ const App = {
 
     /**
      * Get API key from input
-     * @param {string} keyType - 'openai' or 'perplexity'
+     * @param {string} keyType - currently only 'openai'
      * @returns {string} API key value
      */
     getApiKey(keyType) {
@@ -234,10 +232,9 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
     async startFactChecking() {
         // Validate API keys
         const openaiKey = this.getApiKey('openai');
-        const perplexityKey = this.getApiKey('perplexity');
 
-        if (!openaiKey || !perplexityKey) {
-            alert('Please enter both OpenAI and Perplexity API keys');
+        if (!openaiKey) {
+            alert('Please enter your OpenAI API key');
             return;
         }
 
@@ -247,7 +244,7 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
         }
 
         // Set API keys
-        AgentManager.setApiKeys(openaiKey, perplexityKey);
+        AgentManager.setApiKeys(openaiKey);
 
         // Disable verify button
         const verifyBtn = document.getElementById('verify-btn');

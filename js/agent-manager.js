@@ -6,17 +6,14 @@
 
 const AgentManager = {
     openaiApiKey: null,
-    perplexityApiKey: null,
     corsProxyUrl: 'https://api.allorigins.win/get?url=',
 
     /**
      * Set API keys
      * @param {string} openaiKey - OpenAI API key
-     * @param {string} perplexityKey - Perplexity API key
      */
-    setApiKeys(openaiKey, perplexityKey) {
+    setApiKeys(openaiKey) {
         this.openaiApiKey = openaiKey;
-        this.perplexityApiKey = perplexityKey;
     },
 
     /**
@@ -219,11 +216,13 @@ const AgentManager = {
     async verifyCitation(link, data, result) {
         let analysis;
 
-        if (!data.pageContent) {
-            const searchResults = await this.searchWithPerplexity(link);
-            analysis = await this.analyzeWithOpenAI(link, searchResults, null);
-        } else {
+        if (data.pageContent) {
             analysis = await this.analyzeWithOpenAI(link, null, data.pageContent);
+        } else {
+            // Without page content, we cannot verify the claim reliably
+            result.status = 'inaccurate';
+            result.analysis = 'Content unavailable for verification. Could not fetch page content to confirm the claim.';
+            return;
         }
 
         result.status = analysis.isCorrect ? 'verified' : 'inaccurate';
@@ -458,24 +457,6 @@ Output (JSON only):
   "suggestedUrl": "Primary source URL if clearly present in the listed links, else null"
 }
 No prose, no extra keys.`;
-        } else if (searchResults) {
-            // Use Perplexity search results
-            prompt = `Task: Based on the search summary, assess whether the link plausibly supports the context.
-
-Context: ${link.context}
-Link Text: ${link.text}
-Link URL: ${link.url}
-
-Search Summary:
-${searchResults}
-
-Output (JSON only):
-{
-  "isCorrect": true|false,
-  "reasoning": "1 sentence (<=200 chars)",
-  "suggestedUrl": null
-}
-No prose, no extra keys.`;
         } else {
             // No content available
             return {
@@ -583,40 +564,5 @@ No prose, no extra keys.`;
         return needle.length > 0 && hay.includes(needle);
     },
 
-    /**
-     * Search for information using Perplexity Sonar API (fallback)
-     * @param {Object} link - Link object
-     * @returns {Promise<string>} Search results
-     */
-    async searchWithPerplexity(link) {
-        const query = `Verify if this claim is accurate: ${link.context}. Check if ${link.url} is a credible source for this information.`;
-
-        const response = await fetch('https://api.perplexity.ai/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.perplexityApiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'sonar',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a fact-checking assistant. Provide concise, factual verification.'
-                    },
-                    {
-                        role: 'user',
-                        content: query
-                    }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Perplexity API error: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
-    }
+    // Perplexity fallback removed; direct content fetch is required for verification
 };

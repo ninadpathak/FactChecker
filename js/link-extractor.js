@@ -11,72 +11,106 @@ const LinkExtractor = {
      */
     extract(markdown) {
         const links = [];
-        const lines = markdown.split('\n');
-
-        // Regex to match markdown links: [text](url)
         const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        let match;
 
-        lines.forEach((line, lineIndex) => {
-            let match;
-            while ((match = linkRegex.exec(line)) !== null) {
-                const linkText = match[1];
-                const url = match[2];
+        while ((match = linkRegex.exec(markdown)) !== null) {
+            const linkText = match[1];
+            const url = match[2];
+            const context = this.getContext(markdown, match.index, match[0].length);
 
-                // Get context (the sentence or paragraph containing the link)
-                const context = this.getContext(lines, lineIndex, match.index);
-
-                links.push({
-                    text: linkText,
-                    url: url,
-                    context: context,
-                    isCitation: false, // Will be set during classification
-                    status: 'pending' // pending, checking, verified, incorrect
-                });
-            }
-        });
+            links.push({
+                text: linkText,
+                url: url,
+                context: context,
+                isCitation: false,
+                status: 'pending'
+            });
+        }
 
         return links;
     },
 
     /**
-     * Get the context around a link (the sentence or paragraph)
-     * @param {Array} lines - All lines of text
-     * @param {number} lineIndex - The line containing the link
-     * @param {number} charIndex - Character position of the link
-     * @returns {string} The context text
+     * Derive a contextual snippet (full sentence + neighbors) around a link
+     * @param {string} markdown - Entire markdown text
+     * @param {number} matchIndex - Start index of the link match
+     * @param {number} matchLength - Length of the matched link markdown
+     * @returns {string} Context string
      */
-    getContext(lines, lineIndex, charIndex) {
-        const currentLine = lines[lineIndex];
+    getContext(markdown, matchIndex, matchLength) {
+        if (!markdown) return '';
 
-        // If line is short enough, return the whole line
-        if (currentLine.length <= 150) {
-            return currentLine.trim();
+        const paragraph = this.getParagraph(markdown, matchIndex, matchLength);
+        const relativeIndex = matchIndex - paragraph.start;
+        const paragraphText = paragraph.text;
+
+        if (!paragraphText) return '';
+
+        const sentences = this.splitIntoSentences(paragraphText);
+        if (sentences.length === 0) {
+            return this.normalizeWhitespace(paragraphText).slice(0, 360);
         }
 
-        // Otherwise, try to find sentence boundaries
-        const beforeLink = currentLine.substring(0, charIndex);
-        const afterLink = currentLine.substring(charIndex);
-
-        // Find sentence start (look for . ! ? or start of line)
-        let sentenceStart = beforeLink.lastIndexOf('. ');
-        if (sentenceStart === -1) sentenceStart = beforeLink.lastIndexOf('! ');
-        if (sentenceStart === -1) sentenceStart = beforeLink.lastIndexOf('? ');
-        if (sentenceStart === -1) sentenceStart = 0;
-        else sentenceStart += 2; // Skip the punctuation and space
-
-        // Find sentence end
-        let sentenceEnd = afterLink.search(/[.!?]\s/);
-        if (sentenceEnd === -1) sentenceEnd = afterLink.length;
-        else sentenceEnd += 1; // Include the punctuation
-
-        const context = (beforeLink.substring(sentenceStart) + afterLink.substring(0, sentenceEnd)).trim();
-
-        // If still too long, truncate
-        if (context.length > 200) {
-            return context.substring(0, 200) + '...';
+        // Locate the sentence containing the link
+        let currentIdx = 0;
+        let positionTracker = 0;
+        for (let i = 0; i < sentences.length; i++) {
+            const sentence = sentences[i];
+            const start = positionTracker;
+            const end = positionTracker + sentence.length;
+            if (relativeIndex >= start && relativeIndex <= end) {
+                currentIdx = i;
+                break;
+            }
+            positionTracker = end;
         }
 
-        return context;
+        const selected = [];
+        const currentSentence = this.normalizeWhitespace(sentences[currentIdx] || '');
+        if (currentSentence) selected.push(currentSentence);
+
+        const prepend = this.normalizeWhitespace(sentences[currentIdx - 1] || '');
+        if (prepend && prepend.length < 180) {
+            selected.unshift(prepend);
+        }
+
+        const append = this.normalizeWhitespace(sentences[currentIdx + 1] || '');
+        if (append && append.length < 180 && (selected.join(' ').length + append.length) < 360) {
+            selected.push(append);
+        }
+
+        const context = selected.join(' ').trim();
+        return context.length > 360 ? context.slice(0, 360) + '…' : context;
+    },
+
+    /**
+     * Find the paragraph surrounding the link
+     */
+    getParagraph(text, matchIndex, matchLength) {
+        const before = text.lastIndexOf('\n\n', matchIndex);
+        const start = before === -1 ? 0 : before + 2;
+        const after = text.indexOf('\n\n', matchIndex + matchLength);
+        const end = after === -1 ? text.length : after;
+        return {
+            start,
+            end,
+            text: text.slice(start, end)
+        };
+    },
+
+    /**
+     * Basic sentence splitter that keeps punctuation attached
+     */
+    splitIntoSentences(paragraph) {
+        return paragraph.match(/[^.!?]+(?:[.!?]+|$)/g) || [];
+    },
+
+    /**
+     * Collapse whitespace and trim
+     */
+    normalizeWhitespace(text) {
+        return text ? text.replace(/\s+/g, ' ').trim() : '';
     },
 
     /**
