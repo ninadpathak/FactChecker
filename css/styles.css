@@ -254,6 +254,11 @@ header p {
     margin-top: 16px;
 }
 
+.faq-section {
+    width: 30%;
+    margin: 24px auto 0 auto;
+}
+
 .faq-section .faq-list {
     display: flex;
     flex-direction: column;
@@ -525,6 +530,11 @@ table td a:hover {
 
     body {
         padding: 12px;
+    }
+
+    .faq-section {
+        width: 100%;
+        margin-top: 16px;
     }
 
     header h1 {
