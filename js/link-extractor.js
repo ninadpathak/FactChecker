@@ -119,8 +119,8 @@ const LinkExtractor = {
      * @param {string} openaiApiKey - OpenAI API key
      * @returns {Promise<Array>} Links with isCitation property set
      */
-    async classifyLinks(links, openaiApiKey) {
-        if (!openaiApiKey || links.length === 0) {
+    async classifyLinks(links, openaiApiKey, openrouterApiKey) {
+        if (links.length === 0) {
             return links;
         }
 
@@ -157,28 +157,51 @@ Output (JSON only):
 }
 No prose, no extra fields.`;
 
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${openaiApiKey}`,
+            let response;
+            if (openaiApiKey) {
+                response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${openaiApiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-5-nano',
+                        messages: [
+                            { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with valid JSON.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        response_format: { type: 'json_object' },
+                        temperature: 0.2
+                    })
+                });
+            } else if (openrouterApiKey) {
+                const headers = {
+                    'Authorization': `Bearer ${openrouterApiKey}`,
                     'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'gpt-5-nano',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: 'You are a link classifier that determines if links are citations or regular links. Always respond with valid JSON.'
-                        },
-                        {
-                            role: 'user',
-                            content: prompt
-                        }
-                    ],
-                    response_format: { type: 'json_object' },
-                    temperature: 0.2
-                })
-            });
+                };
+                try {
+                    if (typeof window !== 'undefined') {
+                        headers['HTTP-Referer'] = window.location.origin;
+                        headers['X-Title'] = document.title || 'FactChecker 2.0';
+                    }
+                } catch (_) {}
+
+                response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        model: 'deepseek/deepseek-chat-v3.1:free',
+                        messages: [
+                            { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with strict JSON only.' },
+                            { role: 'user', content: prompt }
+                        ]
+                    })
+                });
+            } else {
+                // No keys available
+                return this.fallbackClassification(links);
+            }
 
             if (!response.ok) {
                 console.error('OpenAI classification failed, using fallback');
@@ -186,7 +209,7 @@ No prose, no extra fields.`;
             }
 
             const data = await response.json();
-            const content = data.choices[0].message.content;
+            const content = data.choices?.[0]?.message?.content || '';
             const result = JSON.parse(content);
 
             // Extract the links array from the response

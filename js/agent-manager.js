@@ -6,14 +6,17 @@
 
 const AgentManager = {
     openaiApiKey: null,
+    openrouterApiKey: null,
     corsProxyUrl: 'https://api.allorigins.win/get?url=',
 
     /**
      * Set API keys
      * @param {string} openaiKey - OpenAI API key
+     * @param {string} openrouterKey - OpenRouter API key (fallback)
      */
-    setApiKeys(openaiKey) {
+    setApiKeys(openaiKey, openrouterKey) {
         this.openaiApiKey = openaiKey;
+        this.openrouterApiKey = openrouterKey;
     },
 
     /**
@@ -381,26 +384,12 @@ Output (JSON only):
 }
 No prose, no extra keys.`;
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.openaiApiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'gpt-5-mini',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a concise link relevance checker. Always output strict JSON only.'
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ],
-                response_format: { type: 'json_object' }
-            })
+        const response = await this._chatCompletion({
+            modelOpenAI: 'gpt-5-mini',
+            messages: [
+                { role: 'system', content: 'You are a concise link relevance checker. Always output strict JSON only.' },
+                { role: 'user', content: prompt }
+            ]
         });
 
         if (!response.ok) {
@@ -408,7 +397,7 @@ No prose, no extra keys.`;
         }
 
         const data = await response.json();
-        const content = data.choices[0].message.content;
+        const content = data.choices?.[0]?.message?.content || '';
 
         try {
             return JSON.parse(content);
@@ -466,26 +455,12 @@ No prose, no extra keys.`;
             };
         }
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.openaiApiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'gpt-5-mini',
-                messages: [
-                    {
-                        role: 'system',
-                        content: 'You are a concise fact-checking assistant. Always output strict JSON only.'
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ],
-                response_format: { type: 'json_object' }
-            })
+        const response = await this._chatCompletion({
+            modelOpenAI: 'gpt-5-mini',
+            messages: [
+                { role: 'system', content: 'You are a concise fact-checking assistant. Always output strict JSON only.' },
+                { role: 'user', content: prompt }
+            ]
         });
 
         if (!response.ok) {
@@ -493,7 +468,7 @@ No prose, no extra keys.`;
         }
 
         const data = await response.json();
-        const content = data.choices[0].message.content;
+        const content = data.choices?.[0]?.message?.content || '';
 
         try {
             return JSON.parse(content);
@@ -565,4 +540,54 @@ No prose, no extra keys.`;
     },
 
     // Perplexity fallback removed; direct content fetch is required for verification
+
+    /**
+     * Provider-agnostic chat completion helper.
+     * Uses OpenAI if configured, otherwise falls back to OpenRouter (DeepSeek v3.1 free).
+     * @param {Object} opts
+     * @param {string} opts.modelOpenAI - OpenAI model name when using OpenAI
+     * @param {Array} opts.messages - chat messages array
+     * @returns {Promise<Response>} fetch response
+     */
+    _chatCompletion({ modelOpenAI, messages }) {
+        if (this.openaiApiKey) {
+            return fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.openaiApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: modelOpenAI,
+                    messages,
+                    response_format: { type: 'json_object' }
+                })
+            });
+        }
+
+        if (this.openrouterApiKey) {
+            const headers = {
+                'Authorization': `Bearer ${this.openrouterApiKey}`,
+                'Content-Type': 'application/json'
+            };
+            try {
+                if (typeof window !== 'undefined') {
+                    headers['HTTP-Referer'] = window.location.origin;
+                    headers['X-Title'] = document.title || 'FactChecker 2.0';
+                }
+            } catch (_) {}
+
+            return fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    model: 'deepseek/deepseek-chat-v3.1:free',
+                    messages
+                })
+            });
+        }
+
+        // No provider available
+        return Promise.reject(new Error('No chat provider configured'));
+    }
 };

@@ -42,7 +42,7 @@ const App = {
         saveKeysBtn.addEventListener('click', () => this.saveApiKeys(true));
 
         // Auto-save API keys on input change
-        ['openai-key'].forEach(id => {
+        ['openai-key', 'openrouter-key'].forEach(id => {
             document.getElementById(id).addEventListener('change', () => this.saveApiKeys(false));
         });
 
@@ -77,7 +77,8 @@ const App = {
      */
     loadApiKeys() {
         const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' }
+            { id: 'openai-key', storage: 'factchecker_openai_key' },
+            { id: 'openrouter-key', storage: 'factchecker_openrouter_key' }
         ];
 
         keys.forEach(({ id, storage }) => {
@@ -92,7 +93,8 @@ const App = {
      */
     saveApiKeys(showConfirmation = false) {
         const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' }
+            { id: 'openai-key', storage: 'factchecker_openai_key' },
+            { id: 'openrouter-key', storage: 'factchecker_openrouter_key' }
         ];
 
         keys.forEach(({ id, storage }) => {
@@ -108,7 +110,7 @@ const App = {
 
     /**
      * Get API key from input
-     * @param {string} keyType - currently only 'openai'
+     * @param {string} keyType - 'openai' or 'openrouter'
      * @returns {string} API key value
      */
     getApiKey(keyType) {
@@ -187,10 +189,11 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
             return;
         }
 
-        // Validate OpenAI API key
+        // Validate that at least one API key exists
         const openaiKey = this.getApiKey('openai');
-        if (!openaiKey) {
-            alert('Please enter your OpenAI API key to classify links');
+        const openrouterKey = this.getApiKey('openrouter');
+        if (!openaiKey && !openrouterKey) {
+            alert('Please enter an API key (OpenAI or OpenRouter) to classify links');
             return;
         }
 
@@ -207,7 +210,7 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
             let links = LinkExtractor.extractUnique(this.currentMarkdown);
 
             // Classify links using GPT-5-nano
-            this.currentLinks = await LinkExtractor.classifyLinks(links, openaiKey);
+            this.currentLinks = await LinkExtractor.classifyLinks(links, openaiKey, openrouterKey);
 
             // Display links table with status columns
             UIRenderer.renderLinksTable(this.currentLinks);
@@ -232,9 +235,10 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
     async startFactChecking() {
         // Validate API keys
         const openaiKey = this.getApiKey('openai');
+        const openrouterKey = this.getApiKey('openrouter');
 
-        if (!openaiKey) {
-            alert('Please enter your OpenAI API key');
+        if (!openaiKey && !openrouterKey) {
+            alert('Please enter an API key (OpenAI or OpenRouter)');
             return;
         }
 
@@ -244,7 +248,7 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
         }
 
         // Set API keys
-        AgentManager.setApiKeys(openaiKey);
+        AgentManager.setApiKeys(openaiKey, openrouterKey);
 
         // Disable verify button
         const verifyBtn = document.getElementById('verify-btn');
