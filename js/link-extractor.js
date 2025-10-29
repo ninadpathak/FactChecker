@@ -41,76 +41,47 @@ const LinkExtractor = {
     getContext(markdown, matchIndex, matchLength) {
         if (!markdown) return '';
 
-        const paragraph = this.getParagraph(markdown, matchIndex, matchLength);
-        const relativeIndex = matchIndex - paragraph.start;
-        const paragraphText = paragraph.text;
+        // Get paragraph
+        const before = markdown.lastIndexOf('\n\n', matchIndex);
+        const start = before === -1 ? 0 : before + 2;
+        const after = markdown.indexOf('\n\n', matchIndex + matchLength);
+        const end = after === -1 ? markdown.length : after;
+        const paragraphText = markdown.slice(start, end);
 
         if (!paragraphText) return '';
 
-        const sentences = this.splitIntoSentences(paragraphText);
+        // Split into sentences
+        const sentences = paragraphText.match(/[^.!?]+(?:[.!?]+|$)/g) || [];
         if (sentences.length === 0) {
-            return this.normalizeWhitespace(paragraphText).slice(0, 360);
+            return paragraphText.replace(/\s+/g, ' ').trim().slice(0, 360);
         }
 
-        // Locate the sentence containing the link
+        // Find sentence containing the link
+        const relativeIndex = matchIndex - start;
         let currentIdx = 0;
-        let positionTracker = 0;
+        let pos = 0;
         for (let i = 0; i < sentences.length; i++) {
-            const sentence = sentences[i];
-            const start = positionTracker;
-            const end = positionTracker + sentence.length;
-            if (relativeIndex >= start && relativeIndex <= end) {
+            if (relativeIndex >= pos && relativeIndex <= pos + sentences[i].length) {
                 currentIdx = i;
                 break;
             }
-            positionTracker = end;
+            pos += sentences[i].length;
         }
 
-        const selected = [];
-        const currentSentence = this.normalizeWhitespace(sentences[currentIdx] || '');
-        if (currentSentence) selected.push(currentSentence);
+        // Build context with current + neighboring sentences
+        const normalize = (s) => s.replace(/\s+/g, ' ').trim();
+        const selected = [normalize(sentences[currentIdx] || '')];
 
-        const prepend = this.normalizeWhitespace(sentences[currentIdx - 1] || '');
-        if (prepend && prepend.length < 180) {
-            selected.unshift(prepend);
+        const prev = normalize(sentences[currentIdx - 1] || '');
+        if (prev && prev.length < 180) selected.unshift(prev);
+
+        const next = normalize(sentences[currentIdx + 1] || '');
+        if (next && next.length < 180 && (selected.join(' ').length + next.length) < 360) {
+            selected.push(next);
         }
 
-        const append = this.normalizeWhitespace(sentences[currentIdx + 1] || '');
-        if (append && append.length < 180 && (selected.join(' ').length + append.length) < 360) {
-            selected.push(append);
-        }
-
-        const context = selected.join(' ').trim();
+        const context = selected.join(' ');
         return context.length > 360 ? context.slice(0, 360) + '…' : context;
-    },
-
-    /**
-     * Find the paragraph surrounding the link
-     */
-    getParagraph(text, matchIndex, matchLength) {
-        const before = text.lastIndexOf('\n\n', matchIndex);
-        const start = before === -1 ? 0 : before + 2;
-        const after = text.indexOf('\n\n', matchIndex + matchLength);
-        const end = after === -1 ? text.length : after;
-        return {
-            start,
-            end,
-            text: text.slice(start, end)
-        };
-    },
-
-    /**
-     * Basic sentence splitter that keeps punctuation attached
-     */
-    splitIntoSentences(paragraph) {
-        return paragraph.match(/[^.!?]+(?:[.!?]+|$)/g) || [];
-    },
-
-    /**
-     * Collapse whitespace and trim
-     */
-    normalizeWhitespace(text) {
-        return text ? text.replace(/\s+/g, ' ').trim() : '';
     },
 
     /**
@@ -157,61 +128,26 @@ Output (JSON only):
 }
 No prose, no extra fields.`;
 
-            // Simple provider selection: OpenAI if a key exists in localStorage or passed in; otherwise OpenRouter via server proxy
-            const storedOpenAI = (() => {
-                try { return localStorage.getItem('factchecker_openai_key'); } catch (_) { return null; }
-            })();
-
-            let response;
-            if (storedOpenAI || openaiApiKey) {
-                response = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${storedOpenAI || openaiApiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: 'gpt-5-nano',
-                        messages: [
-                            { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with valid JSON.' },
-                            { role: 'user', content: prompt }
-                        ],
-                        response_format: { type: 'json_object' },
-                        temperature: 0.2
-                    })
-                });
-            } else {
-                try {
-                    response = await fetch('/api/openrouter', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            model: 'deepseek/deepseek-chat-v3.1:free',
-                            messages: [
-                                { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with strict JSON only.' },
-                                { role: 'user', content: prompt }
-                            ]
-                        })
-                    });
-                } catch (e) {
-                    return this.fallbackClassification(links);
-                }
-            }
+            // Use shared provider selection from AgentManager
+            const response = await AgentManager._chatCompletion({
+                modelOpenAI: 'gpt-5-nano',
+                messages: [
+                    { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with valid JSON.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.2
+            });
 
             if (!response.ok) {
-                console.error('OpenAI classification failed, using fallback');
                 return this.fallbackClassification(links);
             }
 
             const data = await response.json();
             const content = data.choices?.[0]?.message?.content || '';
             const result = JSON.parse(content);
-
-            // Extract the links array from the response
             const classificationsArray = result.links || result.classifications || result.results || [];
 
             if (classificationsArray.length === 0) {
-                console.warn('No classifications returned, using fallback');
                 return this.fallbackClassification(links);
             }
 
@@ -222,14 +158,11 @@ No prose, no extra fields.`;
                 }
             });
 
-            // Safety net: refine with local heuristics to reduce false negatives
+            // Refine with local heuristics
             this.refineWithHeuristics(links);
 
-            console.log(`Classified ${links.length} links using gpt-5-nano`);
             return links;
-
         } catch (error) {
-            console.error('Error classifying links:', error);
             return this.fallbackClassification(links);
         }
     },
@@ -241,9 +174,8 @@ No prose, no extra fields.`;
      */
     fallbackClassification(links) {
         links.forEach(link => {
-            link.isCitation = this.strongCitationHeuristic(link.context, link.text);
+            link.isCitation = this.isCitationHeuristic(link.context, link.text);
         });
-        console.log('Using fallback classification');
         return links;
     },
 
@@ -252,7 +184,7 @@ No prose, no extra fields.`;
      */
     refineWithHeuristics(links) {
         links.forEach(link => {
-            if (!link.isCitation && this.strongCitationHeuristic(link.context, link.text)) {
+            if (!link.isCitation && this.isCitationHeuristic(link.context, link.text)) {
                 link.isCitation = true;
             }
         });
@@ -261,7 +193,7 @@ No prose, no extra fields.`;
     /**
      * Heuristic: treat as citation if context suggests a factual claim backed by a source
      */
-    strongCitationHeuristic(context, linkText) {
+    isCitationHeuristic(context, linkText) {
         const c = (context || '').toLowerCase();
         const t = (linkText || '').toLowerCase();
         const hasNumber = /(\d{1,3}(?:\.\d+)?)/.test(c) || c.includes('%') || c.includes('percent');
@@ -289,29 +221,17 @@ No prose, no extra fields.`;
     },
 
     /**
-     * Filter out duplicate links
-     * @param {Array} links - Array of link objects
-     * @returns {Array} Deduplicated array
-     */
-    deduplicate(links) {
-        const seen = new Set();
-        return links.filter(link => {
-            const key = link.url;
-            if (seen.has(key)) {
-                return false;
-            }
-            seen.add(key);
-            return true;
-        });
-    },
-
-    /**
      * Extract and deduplicate links from markdown
      * @param {string} markdown - The markdown text
      * @returns {Array} Array of unique link objects
      */
     extractUnique(markdown) {
         const allLinks = this.extract(markdown);
-        return this.deduplicate(allLinks);
+        const seen = new Set();
+        return allLinks.filter(link => {
+            if (seen.has(link.url)) return false;
+            seen.add(link.url);
+            return true;
+        });
     }
 };

@@ -42,10 +42,8 @@ const App = {
         saveKeysBtn.addEventListener('click', () => this.saveApiKeys(true));
 
         // Auto-save API keys on input change
-        ['openai-key'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', () => this.saveApiKeys(false));
-        });
+        const openaiKeyInput = document.getElementById('openai-key');
+        if (openaiKeyInput) openaiKeyInput.addEventListener('change', () => this.saveApiKeys(false));
 
         // Sample text buttons
         const sampleButtons = document.querySelectorAll('.btn-sample');
@@ -77,15 +75,9 @@ const App = {
      * Load API keys from localStorage
      */
     loadApiKeys() {
-        const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' }
-        ];
-
-        keys.forEach(({ id, storage }) => {
-            const value = localStorage.getItem(storage);
-            const input = document.getElementById(id);
-            if (input && value) input.value = value;
-        });
+        const value = localStorage.getItem('factchecker_openai_key');
+        const input = document.getElementById('openai-key');
+        if (input && value) input.value = value;
     },
 
     /**
@@ -93,20 +85,13 @@ const App = {
      * @param {boolean} showConfirmation - Whether to show alert
      */
     saveApiKeys(showConfirmation = false) {
-        const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' }
-        ];
-
-        keys.forEach(({ id, storage }) => {
-            const el = document.getElementById(id);
-            const value = el ? el.value.trim() : '';
-            if (value) {
-                localStorage.setItem(storage, value);
-            } else {
-                // Remove the key from storage when input is cleared
-                localStorage.removeItem(storage);
-            }
-        });
+        const el = document.getElementById('openai-key');
+        const value = el ? el.value.trim() : '';
+        if (value) {
+            localStorage.setItem('factchecker_openai_key', value);
+        } else {
+            localStorage.removeItem('factchecker_openai_key');
+        }
 
         if (showConfirmation) {
             document.getElementById('api-panel').classList.add('hidden');
@@ -279,15 +264,14 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
      * @param {boolean} hasResults
      */
     updateLayout(hasResults) {
-        const layout = this.mainLayout || document.getElementById('main-layout');
-        if (!layout) return;
+        if (!this.mainLayout) return;
 
         if (hasResults) {
-            layout.classList.remove('initial');
-            layout.classList.add('expanded');
+            this.mainLayout.classList.remove('initial');
+            this.mainLayout.classList.add('expanded');
         } else {
-            layout.classList.add('initial');
-            layout.classList.remove('expanded');
+            this.mainLayout.classList.add('initial');
+            this.mainLayout.classList.remove('expanded');
         }
     }
 };

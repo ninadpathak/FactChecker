@@ -80,7 +80,15 @@ const UIRenderer = {
             const CHAR_LIMIT = 220;
             const needsExpansion = explanation !== '-' && explanation.length > CHAR_LIMIT;
 
-            statusCell.innerHTML = `<span class="status ${result.status}">${this.getStatusText(result.status)}</span>`;
+            const statusTexts = {
+                'pending': 'Ready',
+                'fetching': 'Fetching...',
+                'checking': 'Checking...',
+                'verified': 'Verified',
+                'invalid': 'Invalid Page',
+                'inaccurate': 'Recheck'
+            };
+            statusCell.innerHTML = `<span class="status ${result.status}">${statusTexts[result.status] || result.status}</span>`;
 
             explanationCell.className = 'explanation-cell';
             explanationCell.setAttribute('data-row', index);
@@ -163,22 +171,5 @@ const UIRenderer = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    },
-
-    /**
-     * Get status text
-     * @param {string} status - Status code
-     * @returns {string} Status text
-     */
-    getStatusText(status) {
-        const statusMap = {
-            'pending': 'Ready',
-            'fetching': 'Fetching...',
-            'checking': 'Checking...',
-            'verified': 'Verified',
-            'invalid': 'Invalid Page',
-            'inaccurate': 'Recheck'
-        };
-        return statusMap[status] || status;
     }
 };

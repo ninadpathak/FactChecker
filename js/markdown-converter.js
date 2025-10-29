@@ -4,22 +4,7 @@
  */
 
 const MarkdownConverter = {
-    // Initialize Turndown converter with options
     turndownService: null,
-
-    init() {
-        // Create Turndown instance when needed
-        if (typeof TurndownService !== 'undefined') {
-            this.turndownService = new TurndownService({
-                headingStyle: 'atx',
-                codeBlockStyle: 'fenced',
-                bulletListMarker: '-'
-            });
-
-            // Keep links intact
-            this.turndownService.keep(['a']);
-        }
-    },
 
     /**
      * Convert HTML/rich text to markdown
@@ -27,17 +12,19 @@ const MarkdownConverter = {
      * @returns {string} Markdown formatted text
      */
     convert(html) {
-        if (!this.turndownService) {
-            this.init();
+        if (!this.turndownService && typeof TurndownService !== 'undefined') {
+            this.turndownService = new TurndownService({
+                headingStyle: 'atx',
+                codeBlockStyle: 'fenced',
+                bulletListMarker: '-'
+            });
+            this.turndownService.keep(['a']);
         }
 
         try {
-            // Convert HTML to markdown
-            const markdown = this.turndownService.turndown(html);
-            return markdown;
+            return this.turndownService.turndown(html);
         } catch (error) {
             console.error('Markdown conversion error:', error);
-            // If conversion fails, return original text
             return html;
         }
     },
@@ -50,20 +37,7 @@ const MarkdownConverter = {
      */
     convertFromClipboard(event) {
         const clipboardData = event.clipboardData || window.clipboardData;
-
-        // Try to get HTML data first
         const htmlData = clipboardData.getData('text/html');
-        if (htmlData) {
-            return this.convert(htmlData);
-        }
-
-        // Fallback to plain text
-        const plainText = clipboardData.getData('text/plain');
-        return plainText;
+        return htmlData ? this.convert(htmlData) : clipboardData.getData('text/plain');
     }
 };
-
-// Initialize on load
-if (typeof TurndownService !== 'undefined') {
-    MarkdownConverter.init();
-}

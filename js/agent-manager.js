@@ -141,7 +141,16 @@ const AgentManager = {
      * @returns {Promise<Object>} Verification result
      */
     async verifyLink(link, data, index, onUpdate) {
-        const result = this.createVerificationResult(link, data);
+        const result = {
+            originalUrl: link.url,
+            linkText: link.text,
+            context: link.context,
+            isCitation: link.isCitation,
+            status: 'checking',
+            analysis: '',
+            suggestedUrl: null,
+            redirectUrl: data.httpStatus?.redirectUrl || null
+        };
 
         try {
             // Handle HTTP errors
@@ -156,31 +165,16 @@ const AgentManager = {
                 await this.verifyCitation(link, data, result);
             }
         } catch (error) {
-            this.handleVerificationError(link, result, error);
+            result.status = link.isCitation ? 'inaccurate' : 'verified';
+            result.analysis = link.isCitation
+                ? `Error during verification: ${error.message}`
+                : `Link appears to be working but verification failed: ${error.message}`;
         }
 
         if (onUpdate) onUpdate(index, result);
         return result;
     },
 
-    /**
-     * Create initial verification result object
-     * @param {Object} link - Link object
-     * @param {Object} data - Fetched data
-     * @returns {Object} Result object
-     */
-    createVerificationResult(link, data) {
-        return {
-            originalUrl: link.url,
-            linkText: link.text,
-            context: link.context,
-            isCitation: link.isCitation,
-            status: 'checking',
-            analysis: '',
-            suggestedUrl: null,
-            redirectUrl: data.httpStatus?.redirectUrl || null
-        };
-    },
 
     /**
      * Verify a regular link (non-citation)
@@ -274,19 +268,6 @@ const AgentManager = {
         }
     },
 
-    /**
-     * Handle verification errors
-     * @param {Object} link - Link object
-     * @param {Object} result - Result object to update
-     * @param {Error} error - The error that occurred
-     */
-    handleVerificationError(link, result, error) {
-        console.error('Verification error:', error);
-        result.status = link.isCitation ? 'inaccurate' : 'verified';
-        result.analysis = link.isCitation
-            ? `Error during verification: ${error.message}`
-            : `Link appears to be working but verification failed: ${error.message}`;
-    },
 
     /**
      * Check HTTP status of a URL and detect redirects
@@ -302,12 +283,11 @@ const AgentManager = {
 
             const data = await response.json();
             const httpCode = data.status.http_code;
-            const statusTexts = { 404: 'Not Found', 403: 'Forbidden', 500: 'Server Error' };
 
             return {
                 ok: httpCode >= 200 && httpCode < 400,
                 status: httpCode,
-                statusText: statusTexts[httpCode] || 'Unknown',
+                statusText: httpCode === 404 ? 'Not Found' : httpCode === 403 ? 'Forbidden' : httpCode === 500 ? 'Server Error' : 'Unknown',
                 redirectUrl: data.status.url !== url ? data.status.url : null
             };
         } catch (error) {
@@ -547,23 +527,27 @@ No prose, no extra keys.`;
      * @param {Object} opts
      * @param {string} opts.modelOpenAI - OpenAI model name when using OpenAI
      * @param {Array} opts.messages - chat messages array
+     * @param {number} [opts.temperature] - Temperature for the model (optional)
      * @returns {Promise<Response>} fetch response
      */
-    async _chatCompletion({ modelOpenAI, messages }) {
-        // Simple strategy: use OpenAI if a key exists (either passed to AgentManager or in localStorage), else use OpenRouter proxy
+    async _chatCompletion({ modelOpenAI, messages, temperature }) {
+        // Use OpenAI if a key exists, else use OpenRouter proxy
         let openaiKey = this.openaiApiKey;
         try {
             if (!openaiKey) openaiKey = localStorage.getItem('factchecker_openai_key') || '';
         } catch (_) {}
 
         if (openaiKey) {
+            const body = { model: modelOpenAI, messages, response_format: { type: 'json_object' } };
+            if (temperature !== undefined) body.temperature = temperature;
+
             return fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${openaiKey}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ model: modelOpenAI, messages, response_format: { type: 'json_object' } })
+                body: JSON.stringify(body)
             });
         }
 
