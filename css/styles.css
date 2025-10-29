@@ -64,6 +64,12 @@ body {
     margin-bottom: 0;
 }
 
+.api-panel .keys-note {
+    color: #6b6b6b;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
 .btn-save {
     background: #dc3545;
     color: white;

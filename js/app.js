@@ -42,8 +42,9 @@ const App = {
         saveKeysBtn.addEventListener('click', () => this.saveApiKeys(true));
 
         // Auto-save API keys on input change
-        ['openai-key', 'openrouter-key'].forEach(id => {
-            document.getElementById(id).addEventListener('change', () => this.saveApiKeys(false));
+        ['openai-key'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', () => this.saveApiKeys(false));
         });
 
         // Sample text buttons
@@ -77,13 +78,13 @@ const App = {
      */
     loadApiKeys() {
         const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' },
-            { id: 'openrouter-key', storage: 'factchecker_openrouter_key' }
+            { id: 'openai-key', storage: 'factchecker_openai_key' }
         ];
 
         keys.forEach(({ id, storage }) => {
             const value = localStorage.getItem(storage);
-            if (value) document.getElementById(id).value = value;
+            const input = document.getElementById(id);
+            if (input && value) input.value = value;
         });
     },
 
@@ -93,12 +94,12 @@ const App = {
      */
     saveApiKeys(showConfirmation = false) {
         const keys = [
-            { id: 'openai-key', storage: 'factchecker_openai_key' },
-            { id: 'openrouter-key', storage: 'factchecker_openrouter_key' }
+            { id: 'openai-key', storage: 'factchecker_openai_key' }
         ];
 
         keys.forEach(({ id, storage }) => {
-            const value = document.getElementById(id).value.trim();
+            const el = document.getElementById(id);
+            const value = el ? el.value.trim() : '';
             if (value) localStorage.setItem(storage, value);
         });
 
@@ -114,7 +115,8 @@ const App = {
      * @returns {string} API key value
      */
     getApiKey(keyType) {
-        return document.getElementById(`${keyType}-key`).value.trim();
+        const el = document.getElementById(`${keyType}-key`);
+        return el ? el.value.trim() : '';
     },
 
     /**
