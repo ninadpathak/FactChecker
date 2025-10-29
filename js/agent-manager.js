@@ -384,7 +384,12 @@ No prose, no extra keys.`;
         });
 
         if (!response.ok) {
-            return { isRelevant: true, reasoning: `Could not verify relevance (AI API error ${response.status}).` };
+            const errorMsg = response.status === 404
+                ? 'AI model not found'
+                : response.status === 401
+                ? 'Invalid API key'
+                : `API error ${response.status}`;
+            return { isRelevant: true, reasoning: `Could not verify relevance (${errorMsg}).` };
         }
 
         const data = await response.json();
@@ -393,7 +398,7 @@ No prose, no extra keys.`;
         try {
             return JSON.parse(content);
         } catch (e) {
-            return { isRelevant: true, reasoning: content };
+            return { isRelevant: true, reasoning: content || 'Unable to parse AI response' };
         }
     },
 
@@ -455,7 +460,14 @@ No prose, no extra keys.`;
         });
 
         if (!response.ok) {
-            throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+            const errorMsg = response.status === 404
+                ? 'AI model not found. Please check your API configuration.'
+                : response.status === 401
+                ? 'Invalid API key. Please update your OpenAI API key in settings.'
+                : response.status === 429
+                ? 'Rate limit exceeded. Please try again later.'
+                : `AI API error: ${response.status}`;
+            throw new Error(errorMsg);
         }
 
         const data = await response.json();
@@ -466,7 +478,7 @@ No prose, no extra keys.`;
         } catch (e) {
             return {
                 isCorrect: false,
-                reasoning: content,
+                reasoning: content || 'Unable to parse AI response',
                 suggestedUrl: null
             };
         }
