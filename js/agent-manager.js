@@ -393,7 +393,7 @@ No prose, no extra keys.`;
         });
 
         if (!response.ok) {
-            return { isRelevant: true, reasoning: 'Could not verify relevance' };
+            return { isRelevant: true, reasoning: `Could not verify relevance (AI API error ${response.status}).` };
         }
 
         const data = await response.json();
@@ -464,7 +464,7 @@ No prose, no extra keys.`;
         });
 
         if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+            throw new Error(`AI API error: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
@@ -549,56 +549,91 @@ No prose, no extra keys.`;
      * @param {Array} opts.messages - chat messages array
      * @returns {Promise<Response>} fetch response
      */
-    _chatCompletion({ modelOpenAI, messages }) {
-        if (this.openaiApiKey) {
-            return fetch('https://api.openai.com/v1/chat/completions', {
+    async _chatCompletion({ modelOpenAI, messages }) {
+        const isTransient = (s) => [429, 500, 502, 503, 504].includes(Number(s));
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        const tryOpenAI = async () => {
+            if (!this.openaiApiKey) return null;
+            const doFetch = () => fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${this.openaiApiKey}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    model: modelOpenAI,
-                    messages,
-                    response_format: { type: 'json_object' }
-                })
+                body: JSON.stringify({ model: modelOpenAI, messages, response_format: { type: 'json_object' } })
             });
-        }
+            try {
+                let resp = await doFetch();
+                if (!resp.ok && isTransient(resp.status)) {
+                    await sleep(350);
+                    resp = await doFetch();
+                }
+                return resp;
+            } catch (e) {
+                return null;
+            }
+        };
 
-        if (this.openrouterApiKey) {
-            const headers = {
-                'Authorization': `Bearer ${this.openrouterApiKey}`,
-                'Content-Type': 'application/json'
-            };
+        const tryOpenRouterExternal = async () => {
+            if (!this.openrouterApiKey) return null;
+            const headers = { 'Authorization': `Bearer ${this.openrouterApiKey}`, 'Content-Type': 'application/json' };
             try {
                 if (typeof window !== 'undefined') {
                     headers['HTTP-Referer'] = window.location.origin;
                     headers['X-Title'] = document.title || 'FactChecker 2.0';
                 }
             } catch (_) {}
-
-            return fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    model: 'deepseek/deepseek-chat-v3.1:free',
-                    messages
-                })
-            });
-        }
-
-        // Attempt server-side proxy on Cloudflare Pages
-        try {
-            return fetch('/api/openrouter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const doFetch = () => fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST', headers,
                 body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
             });
-        } catch (e) {
-            // fallthrough to error below
+            try {
+                let resp = await doFetch();
+                if (!resp.ok && isTransient(resp.status)) {
+                    await sleep(350);
+                    resp = await doFetch();
+                }
+                return resp;
+            } catch (e) {
+                return null;
+            }
+        };
+
+        const tryProxy = async () => {
+            const doFetch = () => fetch('/api/openrouter', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: 'deepseek/deepseek-chat-v3.1:free', messages })
+            });
+            try {
+                let resp = await doFetch();
+                if (!resp.ok && isTransient(resp.status)) {
+                    await sleep(350);
+                    resp = await doFetch();
+                }
+                return resp;
+            } catch (e) {
+                return null;
+            }
+        };
+
+        // Priority: OpenAI → OpenRouter (client key) → Proxy
+        const attempts = [];
+        if (this.openaiApiKey) attempts.push(tryOpenAI);
+        if (this.openrouterApiKey) attempts.push(tryOpenRouterExternal);
+        attempts.push(tryProxy);
+
+        for (const attempt of attempts) {
+            const resp = await attempt();
+            if (resp && resp.ok) return resp;
         }
 
-        // No provider available
-        return Promise.reject(new Error('No chat provider configured'));
+        // If we reached here, try to return the last non-null response for error/context
+        for (const attempt of attempts.reverse()) {
+            const resp = await attempt();
+            if (resp) return resp;
+        }
+
+        throw new Error('No chat provider configured or all providers failed');
     }
 };
