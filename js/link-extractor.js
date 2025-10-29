@@ -136,7 +136,7 @@ const LinkExtractor = {
             const prompt = `Task: Classify each link as a CITATION (used as a source for a factual claim) or a REGULAR LINK (general reference).
 
 Definitions
-- CITATION: Used to support a specific fact/claim/statistic (e.g., "according to", "study found", "research shows", "survey by", numbers/percentages).
+- CITATION: Used to support a specific fact/claim/statistic (e.g., "according to", "announced", "reported", "study found", "research shows", "survey by", numbers/percentages).
 - REGULAR LINK: General reference/related reading; not presented as evidence for a specific claim.
 
 Guidelines
@@ -204,6 +204,9 @@ No prose, no extra fields.`;
                 }
             });
 
+            // Safety net: refine with local heuristics to reduce false negatives
+            this.refineWithHeuristics(links);
+
             console.log(`Classified ${links.length} links using gpt-5-nano`);
             return links;
 
@@ -220,15 +223,51 @@ No prose, no extra fields.`;
      */
     fallbackClassification(links) {
         links.forEach(link => {
-            const context = link.context.toLowerCase();
-            const citationIndicators = [
-                'according to', 'research shows', 'study found', 'survey',
-                'data from', 'statistics', '%', 'percent', 'report'
-            ];
-            link.isCitation = citationIndicators.some(indicator => context.includes(indicator));
+            link.isCitation = this.strongCitationHeuristic(link.context, link.text);
         });
         console.log('Using fallback classification');
         return links;
+    },
+
+    /**
+     * Strengthen classification with conservative local heuristics
+     */
+    refineWithHeuristics(links) {
+        links.forEach(link => {
+            if (!link.isCitation && this.strongCitationHeuristic(link.context, link.text)) {
+                link.isCitation = true;
+            }
+        });
+    },
+
+    /**
+     * Heuristic: treat as citation if context suggests a factual claim backed by a source
+     */
+    strongCitationHeuristic(context, linkText) {
+        const c = (context || '').toLowerCase();
+        const t = (linkText || '').toLowerCase();
+        const hasNumber = /(\d{1,3}(?:\.\d+)?)/.test(c) || c.includes('%') || c.includes('percent');
+        const verbs = [
+            'according to', 'announced', 'reported', 'stated', 'says', 'said',
+            'found that', 'finds', 'shows', 'study', 'research', 'survey',
+            'trial', 'report', 'published', 'press release', 'revealed'
+        ];
+        const domainTerms = ['effectiveness', 'increase', 'decrease', 'adopted', 'usage', 'statistic', 'figure'];
+
+        const hasVerb = verbs.some(v => c.includes(v));
+        const hasDomainTerm = domainTerms.some(w => c.includes(w));
+
+        // Treat as citation if:
+        // - It uses citation verbs, or
+        // - Numbers/% appear alongside domain terms or verbs
+        if (hasVerb) return true;
+        if (hasNumber && (hasDomainTerm || c.includes('according to') || c.includes('found'))) return true;
+
+        // If the anchor text itself looks like an org/report/study, be more lenient
+        const anchorHints = ['report', 'study', 'survey', 'research', 'press'];
+        if (hasNumber && anchorHints.some(h => t.includes(h))) return true;
+
+        return false;
     },
 
     /**
