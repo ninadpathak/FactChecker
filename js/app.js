@@ -199,7 +199,7 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
             // Extract links
             let links = LinkExtractor.extractUnique(this.currentMarkdown);
 
-            // Classify links using GPT-4o-mini
+            // Classify links using GPT-5-nano
             this.currentLinks = await LinkExtractor.classifyLinks(links, openaiKey);
 
             // Display links table with status columns

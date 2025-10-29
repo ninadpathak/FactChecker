@@ -80,7 +80,7 @@ const LinkExtractor = {
     },
 
     /**
-     * Classify links using GPT-4o-mini (batch classification)
+     * Classify links using GPT-5-nano (batch classification)
      * @param {Array} links - Array of link objects
      * @param {string} openaiApiKey - OpenAI API key
      * @returns {Promise<Array>} Links with isCitation property set
@@ -140,7 +140,7 @@ Respond with a JSON object containing a "links" array:
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    model: 'gpt-4o-mini',
+                    model: 'gpt-5-nano',
                     messages: [
                         {
                             role: 'system',

@@ -15,7 +15,7 @@ An intelligent, client-side fact-checking tool that verifies citations and links
 
 ## How It Works
 
-### 1. Link Classification (GPT-4o-mini)
+### 1. Link Classification (GPT-5-nano)
 When you process text, the tool uses AI to classify each link:
 - **Citations**: Links used as sources for data, statistics, or research findings (e.g., "According to a PwC survey...")
 - **Regular Links**: General hyperlinks for reference or further reading
@@ -98,7 +98,7 @@ For **regular links**, the tool:
 ## Performance
 
 - **10 parallel fetches**: Retrieves page content for 10 links at once
-- **5 parallel verifications**: Runs 5 GPT-4o-mini analyses simultaneously
+- **5 parallel verifications**: Runs 5 GPT-5-nano analyses simultaneously
 - **Typical speed**: ~20 links verified in under 30 seconds
 
 ## Project Structure
@@ -122,19 +122,19 @@ FactChecker 2.0/
 
 - **Vanilla JavaScript**: Zero dependencies (except external libraries)
 - **Turndown.js**: HTML to Markdown conversion
-- **OpenAI GPT-4o-mini**: Link classification & fact verification
+- **OpenAI GPT-5-nano**: Link classification & fact verification
 - **Perplexity Sonar**: Fallback fact-checking when content unavailable
 - **CORS Proxy**: AllOrigins for fetching page content
 
 ## API Usage & Cost
 
-### GPT-4o-mini Usage:
+### GPT-5-nano Usage:
 1. **Link Classification**: 1 batch call per extraction (all links at once)
 2. **Citation Verification**: 1 call per citation
 3. **Link Relevance Check**: 1 call per regular link
 
 ### Estimated Costs:
-- GPT-4o-mini: ~$0.15 per million tokens
+- GPT-5-nano: ~$0.15 per million tokens
 - Typical cost per article (10 links): **< $0.02**
 
 ## Privacy & Security
@@ -217,7 +217,7 @@ MIT License - Feel free to use and modify.
 
 Built with:
 - [Turndown](https://github.com/mixmark-io/turndown) by Dom Christie
-- [OpenAI GPT-4o-mini](https://platform.openai.com/)
+- [OpenAI GPT-5-nano](https://platform.openai.com/)
 - [Perplexity API](https://docs.perplexity.ai/)
 - [AllOrigins CORS Proxy](https://allorigins.win/)
 
