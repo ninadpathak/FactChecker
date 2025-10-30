@@ -181,8 +181,13 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
             return;
         }
 
-        // Keys (OpenAI or OpenRouter). If neither provided, the app will try server fallback.
+        // Check if API keys are present
         const openaiKey = this.getApiKey('openai');
+        if (!openaiKey) {
+            alert('Please add your OpenAI API Key in the settings (key icon in top right) to use the fact-checking service.');
+            return;
+        }
+
         const openrouterKey = this.getApiKey('openrouter');
 
         // Disable process button
@@ -223,9 +228,12 @@ This vaccine was approved by the [FDA](https://www.fda.gov) in record time and i
     async startFactChecking() {
         // Validate API keys
         const openaiKey = this.getApiKey('openai');
-        const openrouterKey = this.getApiKey('openrouter');
+        if (!openaiKey) {
+            alert('Please add your OpenAI API Key in the settings (key icon in top right) to use the fact-checking service.');
+            return;
+        }
 
-        // If neither key is present, verification will attempt server fallback.
+        const openrouterKey = this.getApiKey('openrouter');
 
         if (this.currentLinks.length === 0) {
             alert('No links to verify');
