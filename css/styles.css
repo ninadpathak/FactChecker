@@ -235,12 +235,19 @@ header p {
     transition: width 0.35s ease, flex-basis 0.35s ease, transform 0.35s ease, opacity 0.35s ease;
 }
 
+/* Button Row Container */
+.button-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+}
+
 /* Sample Text Buttons */
 .sample-buttons {
     display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    margin-top: 8px;
+    gap: 12px;
 }
 
 .btn-sample {
@@ -378,7 +385,6 @@ header p {
     cursor: pointer;
     border-radius: 6px;
     transition: all 0.2s ease;
-    align-self: flex-start;
 }
 
 .btn-primary:hover {
@@ -606,6 +612,20 @@ table td a:hover {
     /* Ensure stack order explicitly on mobile */
     .main-content .text-input { order: 1; }
     .main-content .links-verification { order: 2; }
+
+    .button-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .sample-buttons {
+        justify-content: center;
+    }
+
+    .btn-primary {
+        width: 100%;
+    }
 
     .main-content.initial .text-input,
     .main-content.initial .links-verification,
