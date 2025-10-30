@@ -78,8 +78,9 @@ const UIRenderer = {
             const showExplanation = (result.status === 'invalid' || result.status === 'inaccurate' || result.status === 'verified') && result.analysis;
             const explanation = showExplanation ? result.analysis : '-';
 
-            // Check if text is long enough to need expansion (roughly 3 lines at ~50 chars per line)
-            const needsExpansion = explanation !== '-' && explanation.length > 150;
+            // Show "Show more" for any explanation with more than 5 words
+            const wordCount = explanation !== '-' ? explanation.trim().split(/\s+/).length : 0;
+            const needsExpansion = wordCount > 5;
 
             const statusTexts = {
                 'pending': 'Ready',
