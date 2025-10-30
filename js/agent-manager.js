@@ -563,38 +563,55 @@ No prose, no extra keys.`;
     // Perplexity fallback removed; direct content fetch is required for verification
 
     /**
-     * Provider-agnostic chat completion helper.
-     * Uses OpenAI if configured, otherwise falls back to OpenRouter (DeepSeek v3.1 free).
-     * @param {Object} opts
-     * @param {string} opts.modelOpenAI - OpenAI model name when using OpenAI
-     * @param {Array} opts.messages - chat messages array
-     * @param {number} [opts.temperature] - Temperature for the model (optional)
-     * @returns {Promise<Response>} fetch response
+     * Check if OpenAI API key is available
+     * @returns {string|null} OpenAI API key or null
      */
-    async _chatCompletion({ modelOpenAI, messages, temperature }) {
-        // Use OpenAI if a key exists, else use OpenRouter proxy
+    _getOpenAIKey() {
         let openaiKey = this.openaiApiKey;
         try {
             if (!openaiKey) openaiKey = localStorage.getItem('factchecker_openai_key') || '';
         } catch (_) {}
+        return openaiKey || null;
+    },
 
-        if (openaiKey) {
-            const body = { model: modelOpenAI, messages, response_format: { type: 'json_object' } };
-            if (temperature !== undefined) body.temperature = temperature;
-
-            return fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${openaiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            });
+    /**
+     * Call OpenAI API directly
+     * @param {Object} opts
+     * @param {string} opts.model - OpenAI model name
+     * @param {Array} opts.messages - chat messages array
+     * @param {number} [opts.temperature] - Temperature for the model
+     * @returns {Promise<Response>} fetch response
+     */
+    async _callOpenAI({ model, messages, temperature }) {
+        const apiKey = this._getOpenAIKey();
+        if (!apiKey) {
+            throw new Error('OpenAI API key not configured');
         }
 
-        // No OpenAI key: call server proxy for OpenRouter DeepSeek v3.1
-        // Note: OpenRouter doesn't support response_format, we rely on prompt engineering for JSON
-        const requestBody = { model: 'deepseek/deepseek-chat-v3.1:free', messages };
+        const body = { model, messages, response_format: { type: 'json_object' } };
+        if (temperature !== undefined) body.temperature = temperature;
+
+        return fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+    },
+
+    /**
+     * Call OpenRouter API via Cloudflare proxy
+     * @param {Array} messages - chat messages array
+     * @param {number} [temperature] - Temperature for the model
+     * @returns {Promise<Response>} fetch response
+     */
+    async _callOpenRouter(messages, temperature) {
+        const requestBody = {
+            model: 'deepseek/deepseek-chat-v3.1:free',
+            messages
+        };
         if (temperature !== undefined) {
             requestBody.temperature = temperature;
         }
@@ -604,5 +621,24 @@ No prose, no extra keys.`;
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
         });
+    },
+
+    /**
+     * Provider-agnostic chat completion helper.
+     * Uses OpenAI if configured, otherwise falls back to OpenRouter (DeepSeek v3.1 free).
+     * @param {Object} opts
+     * @param {string} opts.modelOpenAI - OpenAI model name (only used if OpenAI key exists)
+     * @param {Array} opts.messages - chat messages array
+     * @param {number} [opts.temperature] - Temperature for the model (optional)
+     * @returns {Promise<Response>} fetch response
+     */
+    async _chatCompletion({ modelOpenAI, messages, temperature }) {
+        const hasOpenAI = this._getOpenAIKey() !== null;
+
+        if (hasOpenAI) {
+            return this._callOpenAI({ model: modelOpenAI, messages, temperature });
+        } else {
+            return this._callOpenRouter(messages, temperature);
+        }
     }
 };
