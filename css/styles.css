@@ -239,7 +239,8 @@ header p {
 .sample-buttons {
     display: flex;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
+    margin-top: 8px;
 }
 
 .btn-sample {
@@ -279,23 +280,7 @@ header p {
     width: 100%;
     font-family: inherit;
     resize: vertical;
-    min-height: 250px;
-}
-/* Rainbow shadow for the paste textarea */
-#input-text {
-    transition: box-shadow 0.25s ease;
-    border-radius: 8px;
-}
-#input-text:focus {
-    box-shadow:
-        0 0 0 2px rgba(255, 0, 0, 0.35),
-        0 0 0 4px rgba(255, 165, 0, 0.35),
-        0 0 0 6px rgba(255, 255, 0, 0.35),
-        0 0 0 8px rgba(0, 128, 0, 0.35),
-        0 0 0 10px rgba(0, 0, 255, 0.35),
-        0 0 0 12px rgba(75, 0, 130, 0.35),
-        0 0 0 14px rgba(238, 130, 238, 0.35);
-    outline: none;
+    min-height: 120px;
 }
 
 /* Links Verification Section */
