@@ -25,51 +25,53 @@
 
     <div class="container">
         <!-- Hero Section -->
-        <header class="hero">
-            <div class="logo-icon">
-                <i class="fa-solid fa-shield-halved"></i>
+        <section class="hero-section">
+            <header class="hero">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h1>FactChecker 2.0</h1>
+                <p class="hero-subtitle">Verify citations and check link accuracy with AI-powered analysis</p>
+            </header>
+
+            <!-- Main Content: Adaptive Layout -->
+            <div class="main-content initial" id="main-layout">
+                <!-- Left Side: Text Input -->
+                <section class="text-input">
+                    <div class="sample-buttons">
+                        <button class="btn-sample" data-sample="1">Sample Text 1</button>
+                        <button class="btn-sample" data-sample="2">Sample Text 2</button>
+                    </div>
+                    <div class="input-group">
+                        <textarea id="input-text" placeholder=" " rows="15"></textarea>
+                        <label for="input-text">Paste your text here</label>
+                    </div>
+                    <button id="process-btn" class="btn-primary">Extract Links</button>
+
+                    <!-- Trust Indicators -->
+                    <div class="trust-indicators">
+                        <div class="trust-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Privacy First</span>
+                        </div>
+                        <div class="trust-item">
+                            <i class="fas fa-laptop"></i>
+                            <span>Browser Only</span>
+                        </div>
+                        <div class="trust-item">
+                            <i class="fas fa-eye-slash"></i>
+                            <span>No Tracking</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Right Side: Links Verification Table -->
+                <section id="links-section" class="links-verification hidden">
+                    <div id="links-output"></div>
+                    <button id="verify-btn" class="btn-primary hidden">Check Links</button>
+                </section>
             </div>
-            <h1>FactChecker 2.0</h1>
-            <p class="hero-subtitle">Verify citations and check link accuracy with AI-powered analysis</p>
-        </header>
-
-        <!-- Main Content: Adaptive Layout -->
-        <div class="main-content initial" id="main-layout">
-            <!-- Left Side: Text Input -->
-            <section class="text-input">
-                <div class="sample-buttons">
-                    <button class="btn-sample" data-sample="1">Sample Text 1</button>
-                    <button class="btn-sample" data-sample="2">Sample Text 2</button>
-                </div>
-                <div class="input-group">
-                    <textarea id="input-text" placeholder=" " rows="15"></textarea>
-                    <label for="input-text">Paste your text here</label>
-                </div>
-                <button id="process-btn" class="btn-primary">Extract Links</button>
-
-                <!-- Trust Indicators -->
-                <div class="trust-indicators">
-                    <div class="trust-item">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Privacy First</span>
-                    </div>
-                    <div class="trust-item">
-                        <i class="fas fa-laptop"></i>
-                        <span>Browser Only</span>
-                    </div>
-                    <div class="trust-item">
-                        <i class="fas fa-eye-slash"></i>
-                        <span>No Tracking</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Right Side: Links Verification Table -->
-            <section id="links-section" class="links-verification hidden">
-                <div id="links-output"></div>
-                <button id="verify-btn" class="btn-primary hidden">Check Links</button>
-            </section>
-        </div>
+        </section>
 
         <!-- How It Works Section -->
         <section class="how-it-works">

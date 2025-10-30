@@ -108,6 +108,12 @@ body {
     padding: 0;
 }
 
+/* Hero Section Wrapper */
+.hero-section {
+    padding: 0 calc(var(--spacing-unit) * 2);
+    margin-bottom: var(--section-spacing);
+}
+
 /* Header */
 header {
     text-align: center;
@@ -314,7 +320,8 @@ header p {
 .faq-section {
     width: 60%;
     max-width: 900px;
-    margin: 32px auto 0 auto;
+    margin: var(--section-spacing) auto 0 auto;
+    padding: 0 calc(var(--spacing-unit) * 2);
 }
 
 .faq-section .faq-list {
@@ -607,9 +614,28 @@ table td a:hover {
         padding: 12px;
     }
 
+    .hero-section {
+        padding: 0 var(--spacing-unit);
+    }
+
+    .how-it-works {
+        padding: calc(var(--spacing-unit) * 3) var(--spacing-unit);
+    }
+
+    .stats-section {
+        flex-direction: column;
+        gap: 1rem;
+        margin: calc(var(--section-spacing) * 0.75) var(--spacing-unit);
+    }
+
+    .stat-card {
+        width: 100%;
+    }
+
     .faq-section {
         width: 100%;
-        margin-top: 16px;
+        margin-top: calc(var(--section-spacing) * 0.75);
+        padding: 0 var(--spacing-unit);
     }
 
     header h1 {
@@ -622,15 +648,6 @@ table td a:hover {
 
     .step {
         max-width: 100%;
-    }
-
-    .stats-section {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .stat-card {
-        width: 100%;
     }
 }
 
@@ -661,13 +678,17 @@ table td a:hover {
     opacity: 0.8;
 }
 
-/* How It Works Section */
+/* How It Works Section - Full Width */
 .how-it-works {
-    margin: var(--section-spacing) 0;
-    padding: calc(var(--spacing-unit) * 3);
-    background: var(--card-bg);
-    border-radius: var(--border-radius);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin: 0 calc(-1 * (100vw - 100%) / 2);
+    padding: calc(var(--spacing-unit) * 4) calc(var(--spacing-unit) * 2);
+    background: var(--bg-color);
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
 }
 
 .how-it-works h2 {
@@ -734,7 +755,7 @@ table td a:hover {
     display: flex;
     justify-content: center;
     gap: calc(var(--spacing-unit) * 1.5);
-    margin: var(--section-spacing) 0;
+    margin: var(--section-spacing) calc(var(--spacing-unit) * 2);
     flex-wrap: wrap;
 }
 
