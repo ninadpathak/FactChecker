@@ -128,9 +128,9 @@ Output (JSON only):
 }
 No prose, no extra fields.`;
 
-            // Use shared provider selection from AgentManager
+            // Use OpenAI for classification
             const response = await AgentManager._chatCompletion({
-                modelOpenAI: 'gpt-5-nano',
+                model: 'gpt-5-nano',
                 messages: [
                     { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with valid JSON.' },
                     { role: 'user', content: prompt }

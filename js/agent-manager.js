@@ -376,7 +376,7 @@ Output (JSON only):
 No prose, no extra keys.`;
 
         const response = await this._chatCompletion({
-            modelOpenAI: 'gpt-5-mini',
+            model: 'gpt-5-mini',
             messages: [
                 { role: 'system', content: 'You are a concise link relevance checker. Always output strict JSON only.' },
                 { role: 'user', content: prompt }
@@ -460,7 +460,7 @@ No prose, no extra keys.`;
         }
 
         const response = await this._chatCompletion({
-            modelOpenAI: 'gpt-5-mini',
+            model: 'gpt-5-mini',
             messages: [
                 { role: 'system', content: 'You are a concise fact-checking assistant. Always output strict JSON only.' },
                 { role: 'user', content: prompt }
@@ -563,29 +563,22 @@ No prose, no extra keys.`;
     // Perplexity fallback removed; direct content fetch is required for verification
 
     /**
-     * Check if OpenAI API key is available
-     * @returns {string|null} OpenAI API key or null
-     */
-    _getOpenAIKey() {
-        let openaiKey = this.openaiApiKey;
-        try {
-            if (!openaiKey) openaiKey = localStorage.getItem('factchecker_openai_key') || '';
-        } catch (_) {}
-        return openaiKey || null;
-    },
-
-    /**
-     * Call OpenAI API directly
+     * Call OpenAI API for chat completion
      * @param {Object} opts
      * @param {string} opts.model - OpenAI model name
      * @param {Array} opts.messages - chat messages array
      * @param {number} [opts.temperature] - Temperature for the model
      * @returns {Promise<Response>} fetch response
      */
-    async _callOpenAI({ model, messages, temperature }) {
-        const apiKey = this._getOpenAIKey();
+    async _chatCompletion({ model, messages, temperature }) {
+        // Get OpenAI API key
+        let apiKey = this.openaiApiKey;
+        try {
+            if (!apiKey) apiKey = localStorage.getItem('factchecker_openai_key') || '';
+        } catch (_) {}
+
         if (!apiKey) {
-            throw new Error('OpenAI API key not configured');
+            throw new Error('OpenAI API key required. Please add your API key in settings.');
         }
 
         const body = { model, messages, response_format: { type: 'json_object' } };
@@ -599,46 +592,5 @@ No prose, no extra keys.`;
             },
             body: JSON.stringify(body)
         });
-    },
-
-    /**
-     * Call OpenRouter API via Cloudflare proxy
-     * @param {Array} messages - chat messages array
-     * @param {number} [temperature] - Temperature for the model
-     * @returns {Promise<Response>} fetch response
-     */
-    async _callOpenRouter(messages, temperature) {
-        const requestBody = {
-            model: 'deepseek/deepseek-chat-v3.1:free',
-            messages
-        };
-        if (temperature !== undefined) {
-            requestBody.temperature = temperature;
-        }
-
-        return fetch('/api/openrouter', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
-    },
-
-    /**
-     * Provider-agnostic chat completion helper.
-     * Uses OpenAI if configured, otherwise falls back to OpenRouter (DeepSeek v3.1 free).
-     * @param {Object} opts
-     * @param {string} opts.modelOpenAI - OpenAI model name (only used if OpenAI key exists)
-     * @param {Array} opts.messages - chat messages array
-     * @param {number} [opts.temperature] - Temperature for the model (optional)
-     * @returns {Promise<Response>} fetch response
-     */
-    async _chatCompletion({ modelOpenAI, messages, temperature }) {
-        const hasOpenAI = this._getOpenAIKey() !== null;
-
-        if (hasOpenAI) {
-            return this._callOpenAI({ model: modelOpenAI, messages, temperature });
-        } else {
-            return this._callOpenRouter(messages, temperature);
-        }
     }
 };
