@@ -24,12 +24,13 @@
     </div>
 
     <div class="container">
-        <header>
+        <!-- Hero Section -->
+        <header class="hero">
             <div class="logo-icon">
                 <i class="fa-solid fa-shield-halved"></i>
             </div>
             <h1>FactChecker 2.0</h1>
-            <p>Paste text to verify facts and check link accuracy</p>
+            <p class="hero-subtitle">Verify citations and check link accuracy with AI-powered analysis</p>
         </header>
 
         <!-- Main Content: Adaptive Layout -->
@@ -44,7 +45,23 @@
                     <textarea id="input-text" placeholder=" " rows="15"></textarea>
                     <label for="input-text">Paste your text here</label>
                 </div>
-                <button id="process-btn" class="btn-primary">Process Text</button>
+                <button id="process-btn" class="btn-primary">Extract Links</button>
+
+                <!-- Trust Indicators -->
+                <div class="trust-indicators">
+                    <div class="trust-item">
+                        <i class="fas fa-lock"></i>
+                        <span>Privacy First</span>
+                    </div>
+                    <div class="trust-item">
+                        <i class="fas fa-browser"></i>
+                        <span>Browser Only</span>
+                    </div>
+                    <div class="trust-item">
+                        <i class="fas fa-ban"></i>
+                        <span>No Tracking</span>
+                    </div>
+                </div>
             </section>
 
             <!-- Right Side: Links Verification Table -->
@@ -53,6 +70,50 @@
                 <button id="verify-btn" class="btn-primary hidden">Check Links</button>
             </section>
         </div>
+
+        <!-- How It Works Section -->
+        <section class="how-it-works">
+            <h2>How It Works</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-icon"><i class="fas fa-paste"></i></div>
+                    <h3>Paste Your Text</h3>
+                    <p>Paste any article, blog post, or document with links and citations</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-icon"><i class="fas fa-brain"></i></div>
+                    <h3>AI Classification</h3>
+                    <p>Our AI identifies citations vs regular links using context analysis</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>Get Results</h3>
+                    <p>See verification status with detailed explanations for each link</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section class="stats-section">
+            <div class="stat-card">
+                <div class="stat-number">20+</div>
+                <div class="stat-label">Links Processed</div>
+                <div class="stat-description">in under 30 seconds</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">10x</div>
+                <div class="stat-label">Parallel Fetching</div>
+                <div class="stat-description">for maximum speed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">Browser-Based</div>
+                <div class="stat-description">no server storage</div>
+            </div>
+        </section>
 
         <!-- FAQ / About Section -->
         <section class="info-card faq-section">
