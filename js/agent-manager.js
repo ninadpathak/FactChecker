@@ -7,7 +7,7 @@
 const AgentManager = {
     openaiApiKey: null,
     openrouterApiKey: null,
-    corsProxyUrl: 'https://api.allorigins.win/get?url=',
+    corsProxyUrl: '/api/fetch-url?url=',
 
     /**
      * Set API keys
