@@ -27,8 +27,11 @@ export async function onRequest({ request, env }) {
     try {
       const body = await request.json();
       const messages = body?.messages;
-      const model = body?.model || 'deepseek/deepseek-chat-v3.1:free';
+      // Force the correct model - ignore what client sends
+      const model = 'deepseek/deepseek-chat-v3.1:free';
       const temperature = body?.temperature;
+
+      console.log('OpenRouter request:', { model, messageCount: messages?.length, temperature });
 
       if (!Array.isArray(messages) || messages.length === 0) {
         return new Response(JSON.stringify({ error: 'Missing messages array' }), {
@@ -42,6 +45,7 @@ export async function onRequest({ request, env }) {
 
       const apiKey = env.OPENROUTER_API_KEY;
       if (!apiKey) {
+        console.error('OPENROUTER_API_KEY not configured in environment');
         return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY not configured' }), {
           status: 500,
           headers: {
@@ -57,6 +61,8 @@ export async function onRequest({ request, env }) {
         requestBody.temperature = temperature;
       }
 
+      console.log('Calling OpenRouter with:', JSON.stringify(requestBody).slice(0, 200));
+
       const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -68,7 +74,10 @@ export async function onRequest({ request, env }) {
 
       const text = await upstream.text();
 
-      // If upstream failed, log the error for debugging
+      // Log for debugging
+      console.log('OpenRouter response:', upstream.status, text.slice(0, 200));
+
+      // If upstream failed, log the full error
       if (!upstream.ok) {
         console.error('OpenRouter API error:', upstream.status, text);
       }
@@ -82,7 +91,7 @@ export async function onRequest({ request, env }) {
       });
     } catch (err) {
       console.error('OpenRouter proxy error:', err);
-      return new Response(JSON.stringify({ error: String(err && err.message || err) }), {
+      return new Response(JSON.stringify({ error: String(err && err.message || err), stack: err.stack }), {
         status: 500,
         headers: {
           'Content-Type': 'application/json',
