@@ -571,9 +571,13 @@ table td a:hover {
 @media (max-width: 968px) {
     .main-content {
         flex-direction: column;
-        padding: 0;
-        gap: 16px;
+        padding: 16px; /* equal spacing around on mobile */
+        gap: 16px;     /* equal spacing between sections */
     }
+
+    /* Ensure stack order explicitly on mobile */
+    .main-content .text-input { order: 1; }
+    .main-content .links-verification { order: 2; }
 
     .main-content.initial .text-input,
     .main-content.initial .links-verification,
