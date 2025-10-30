@@ -281,6 +281,22 @@ header p {
     resize: vertical;
     min-height: 250px;
 }
+/* Rainbow shadow for the paste textarea */
+#input-text {
+    transition: box-shadow 0.25s ease;
+    border-radius: 8px;
+}
+#input-text:focus {
+    box-shadow:
+        0 0 0 2px rgba(255, 0, 0, 0.35),
+        0 0 0 4px rgba(255, 165, 0, 0.35),
+        0 0 0 6px rgba(255, 255, 0, 0.35),
+        0 0 0 8px rgba(0, 128, 0, 0.35),
+        0 0 0 10px rgba(0, 0, 255, 0.35),
+        0 0 0 12px rgba(75, 0, 130, 0.35),
+        0 0 0 14px rgba(238, 130, 238, 0.35);
+    outline: none;
+}
 
 /* Links Verification Section */
 .links-verification {
@@ -406,7 +422,7 @@ table {
 }
 
 table th {
-    padding: 8px 10px;
+    padding: 12px;
     text-align: left;
     border-bottom: 2px solid #e5ddd5;
     font-weight: 600;
@@ -437,11 +453,12 @@ table th:nth-child(5) { /* Explanation */
 }
 
 table td {
-    padding: 10px;
+    padding: 14px 12px;
     border-bottom: 1px solid #f5f1ed;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    vertical-align: top;
 }
 
 table td:nth-child(3) { /* Type column */
@@ -454,15 +471,22 @@ table td:nth-child(4) { /* Status column */
 
 table td:nth-child(5) { /* Explanation column */
     white-space: normal;
-    max-height: 60px;
-    overflow: hidden;
     position: relative;
     line-height: 1.6;
 }
 
-table td.expanded {
-    max-height: none;
-    white-space: normal;
+table td:nth-child(5) .explanation-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+table td.expanded .explanation-text {
+    display: block;
+    -webkit-line-clamp: unset;
+    -webkit-box-orient: unset;
 }
 
 table td .expand-btn {
