@@ -174,7 +174,7 @@ No prose, no extra fields.`;
      */
     fallbackClassification(links) {
         links.forEach(link => {
-            link.isCitation = this.isCitationHeuristic(link.context, link.text);
+            link.isCitation = this.isCitationHeuristic(link.context, link.text, link.url);
         });
         return links;
     },
@@ -184,8 +184,15 @@ No prose, no extra fields.`;
      */
     refineWithHeuristics(links) {
         links.forEach(link => {
-            if (!link.isCitation && this.isCitationHeuristic(link.context, link.text)) {
+            const strong = this._strongCitationSignal(link.text, link.context, link.url);
+            if (!link.isCitation && (strong || this.isCitationHeuristic(link.context, link.text, link.url))) {
                 link.isCitation = true;
+            }
+            // Optional conservative override: if model marked as citation but everything looks generic, downgrade
+            // Only apply when no numbers and no evidence terms present to reduce false negatives
+            const generic = this._strongGenericSignal(link.text, link.context, link.url);
+            if (link.isCitation && generic) {
+                link.isCitation = false;
             }
         });
     },
@@ -193,31 +200,60 @@ No prose, no extra fields.`;
     /**
      * Heuristic: treat as citation if context suggests a factual claim backed by a source
      */
-    isCitationHeuristic(context, linkText) {
+    isCitationHeuristic(context, linkText, url) {
         const c = (context || '').toLowerCase();
         const t = (linkText || '').toLowerCase();
-        const hasNumber = /(\d{1,3}(?:\.\d+)?)/.test(c) || c.includes('%') || c.includes('percent');
+        const u = (url || '').toLowerCase();
+
+        const numRe = /(\d{1,3}(?:\.\d+)?)/;
+        const hasNumberInContext = numRe.test(c) || c.includes('%') || c.includes(' percent');
+        const hasNumberInText = numRe.test(t) || t.includes('%') || t.includes(' percent');
+
         const verbs = [
             'according to', 'announced', 'reported', 'stated', 'says', 'said',
             'found that', 'finds', 'shows', 'study', 'research', 'survey',
             'trial', 'report', 'published', 'press release', 'revealed'
         ];
-        const domainTerms = ['effectiveness', 'increase', 'decrease', 'adopted', 'usage', 'statistic', 'figure'];
+        const statTerms = ['increase', 'decrease', 'percent', 'percentage', 'statistic', 'statistics', 'figure', 'data', 'estimates', 'estimate'];
+        const urlHints = ['/stats', 'stats-', 'statistics', '/research', '/study', '/report', 'whitepaper', '.pdf', '/press'];
 
         const hasVerb = verbs.some(v => c.includes(v));
-        const hasDomainTerm = domainTerms.some(w => c.includes(w));
+        const hasStatContext = statTerms.some(w => c.includes(w));
+        const hasStatAnchor = statTerms.some(w => t.includes(w));
+        const urlSuggestsStats = urlHints.some(h => u.includes(h));
 
-        // Treat as citation if:
-        // - It uses citation verbs, or
-        // - Numbers/% appear alongside domain terms or verbs
-        if (hasVerb) return true;
-        if (hasNumber && (hasDomainTerm || c.includes('according to') || c.includes('found'))) return true;
+        // Strong positive signals
+        if (hasNumberInText) return true; // anchors like "81%", "208% increase"
+        if (hasVerb && (hasNumberInContext || hasStatContext || hasStatAnchor)) return true;
+        if ((hasNumberInContext || hasStatAnchor) && urlSuggestsStats) return true;
 
-        // If the anchor text itself looks like an org/report/study, be more lenient
-        const anchorHints = ['report', 'study', 'survey', 'research', 'press'];
-        if (hasNumber && anchorHints.some(h => t.includes(h))) return true;
-
+        // Weak signal
         return false;
+    },
+
+    /**
+     * Strong positive signals for citation (override to true)
+     */
+    _strongCitationSignal(linkText, context, url) {
+        const t = (linkText || '').toLowerCase();
+        const u = (url || '').toLowerCase();
+        const hasNumber = /(\d{1,3}(?:\.\d+)?)/.test(t) || t.includes('%');
+        const hasStatWord = /(increase|decrease|percent|percentage|statistic|statistics|study|research|survey|report)/.test(t);
+        const urlStat = /(stats|statistic|research|study|report|whitepaper|press|pdf)/.test(u);
+        return hasNumber || (hasStatWord && urlStat);
+    },
+
+    /**
+     * Strong negative signal for citation (override to false)
+     */
+    _strongGenericSignal(linkText, context, url) {
+        const t = (linkText || '').toLowerCase().trim();
+        const genericPhrases = [
+            'homepage', 'home', 'learn more', 'click here', 'read more', 'about us', 'contact', 'abm strategies', 'what is', 'guide', 'overview'
+        ];
+        const hasNumber = /(\d{1,3}(?:\.\d+)?)/.test(t) || t.includes('%');
+        if (hasNumber) return false; // never generic if numeric
+        return genericPhrases.some(p => t.includes(p));
     },
 
     /**
