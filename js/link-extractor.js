@@ -18,11 +18,34 @@ const LinkExtractor = {
             const linkText = match[1];
             const url = match[2];
             const context = this.getContext(markdown, match.index, match[0].length);
+            const sentence = this.getSentence(markdown, match.index, match[0].length);
+
+            // Derive numeric statistic features for the sentence
+            const sentenceForNums = sentence.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+            const numsInSentence = this._extractNumberTokens(sentenceForNums);
+
+            // Numbers present in any anchor texts within the same sentence
+            const anchorsInSentence = Array.from(sentence.matchAll(linkRegex)).map(m => m[1]);
+            const numsInAnchorsAll = anchorsInSentence.flatMap(t => this._extractNumberTokens(t));
+            const numsInThisAnchor = this._extractNumberTokens(linkText);
+
+            const norm = (s) => s.replace(/,/g, '').replace(/%$/, '');
+            const anchorSet = new Set(numsInAnchorsAll.map(norm));
+            const unlinked = numsInSentence.filter(n => !anchorSet.has(norm(n)));
 
             links.push({
                 text: linkText,
                 url: url,
                 context: context,
+                sentence: sentence,
+                features: {
+                    anchorHasNumber: numsInThisAnchor.length > 0,
+                    sentenceHasNumber: numsInSentence.length > 0,
+                    unlinkedNumbers: unlinked,
+                    numbersInAnchorsAll: numsInAnchorsAll,
+                    anchorNumbers: numsInThisAnchor,
+                    sentenceNumbers: numsInSentence
+                },
                 isCitation: false,
                 status: 'pending'
             });
@@ -85,6 +108,40 @@ const LinkExtractor = {
     },
 
     /**
+     * Return only the sentence that contains the link
+     */
+    getSentence(markdown, matchIndex, matchLength) {
+        if (!markdown) return '';
+
+        const before = markdown.lastIndexOf('\n\n', matchIndex);
+        const start = before === -1 ? 0 : before + 2;
+        const after = markdown.indexOf('\n\n', matchIndex + matchLength);
+        const end = after === -1 ? markdown.length : after;
+        const paragraphText = markdown.slice(start, end);
+
+        const sentences = paragraphText.match(/[^.!?]+(?:[.!?]+|$)/g) || [paragraphText];
+        const relativeIndex = matchIndex - start;
+        let pos = 0;
+        for (let i = 0; i < sentences.length; i++) {
+            const s = sentences[i];
+            if (relativeIndex >= pos && relativeIndex <= pos + s.length) {
+                return s.replace(/\s+/g, ' ').trim();
+            }
+            pos += s.length;
+        }
+        return paragraphText.replace(/\s+/g, ' ').trim();
+    },
+
+    /**
+     * Extract numeric tokens (e.g., 81, 2,000, 12.5, 81%) from a string
+     */
+    _extractNumberTokens(str) {
+        if (!str) return [];
+        const re = /(\d{1,3}(?:,\d{3})*(?:\.\d+)?%?|\d+(?:\.\d+)?%?)/g;
+        return (str.match(re) || []).map(s => s.trim());
+    },
+
+    /**
      * Classify links using GPT-5-nano (batch classification)
      * @param {Array} links - Array of link objects
      * @param {string} openaiApiKey - OpenAI API key
@@ -98,44 +155,51 @@ const LinkExtractor = {
         try {
             // Prepare batch classification prompt
             const linksData = links.map((link, index) => ({
-                index: index,
+                index,
+                sentence: link.sentence || link.context,
                 context: link.context,
                 linkText: link.text,
-                url: link.url
+                url: link.url,
+                features: link.features || {}
             }));
 
-            const prompt = `Task: Classify each link as a CITATION (used as a source for a factual claim) or a REGULAR LINK (general reference).
+            const prompt = `You are classifying links as CITATION or REGULAR.
 
-Definitions
-- CITATION: Used to support a specific fact/claim/statistic (e.g., "according to", "announced", "reported", "study found", "research shows", "survey by", numbers/percentages).
-- REGULAR LINK: General reference/related reading; not presented as evidence for a specific claim.
+Definitions (strict)
+- CITATION: The link is intended as the source for a specific factual claim or statistic in the same sentence.
+- REGULAR: Navigation/definition/related reading; not the source of a concrete claim in that sentence.
 
-Guidelines
-- Decide using only the provided context around each link.
-- If uncertain, prefer REGULAR LINK (isCitation = false).
+Rules (deterministic)
+1) If the anchor text itself contains a numeral/percent (e.g., "81%", "208% increase"), mark CITATION.
+2) If the sentence contains any numeral/percent that is NOT part of any link's anchor text in that sentence, then a nearby link that plausibly points to a source (report/study/stats/news) should be CITATION.
+3) If the sentence's numerals already appear inside some anchor text in that sentence, other generic anchors in that sentence are REGULAR.
+4) Attribution phrases like "according to", "reported", "study", "research", "survey" strengthen CITATION when paired with (1) or (2).
+5) When uncertain, prefer REGULAR.
+
+Decide using only the provided sentence/context. No external knowledge.
 
 Items (${links.length}):
-${linksData.map(l => `[${l.index}] Context: "${l.context}"
-Link Text: "${l.linkText}"
-URL: ${l.url}`).join('\n\n')}
+${linksData.map(l => `[
+${l.index}] Sentence: "${l.sentence}"
+Anchor: "${l.linkText}"
+URL: ${l.url}
+NumbersInSentence: ${JSON.stringify(l.features.sentenceNumbers || [])}
+NumbersInAnchorsThisSentence: ${JSON.stringify(l.features.numbersInAnchorsAll || [])}
+NumbersInThisAnchor: ${JSON.stringify(l.features.anchorNumbers || [])}
+UnlinkedNumbers: ${JSON.stringify(l.features.unlinkedNumbers || [])}`).join('\n\n')}
 
 Output (JSON only):
-{
-  "links": [
-    {"index": 0, "isCitation": true|false},
-    ... one object for each index 0..${links.length - 1}
-  ]
-}
-No prose, no extra fields.`;
+{ "links": [ {"index": 0, "isCitation": true|false}, ... up to ${links.length - 1} ] }
+No prose, no extra keys.`;
 
             // Use OpenAI for classification
             const response = await AgentManager._chatCompletion({
                 model: 'gpt-5-nano',
                 messages: [
-                    { role: 'system', content: 'You are a link classifier that determines if links are citations or regular links. Always respond with valid JSON.' },
+                    { role: 'system', content: 'You are a deterministic link classifier. Output strict JSON only.' },
                     { role: 'user', content: prompt }
                 ],
-                temperature: 0.2
+                temperature: 0
             });
 
             if (!response.ok) {
@@ -174,7 +238,7 @@ No prose, no extra fields.`;
      */
     fallbackClassification(links) {
         links.forEach(link => {
-            link.isCitation = this.isCitationHeuristic(link.context, link.text, link.url);
+            link.isCitation = this.isCitationHeuristicLink(link);
         });
         return links;
     },
@@ -184,17 +248,46 @@ No prose, no extra fields.`;
      */
     refineWithHeuristics(links) {
         links.forEach(link => {
-            const strong = this._strongCitationSignal(link.text, link.context, link.url);
-            if (!link.isCitation && (strong || this.isCitationHeuristic(link.context, link.text, link.url))) {
+            const strong = this._strongCitationSignal(link.text, link.context, link.url) || (link.features && (link.features.anchorHasNumber || (link.features.unlinkedNumbers || []).length > 0));
+            if (!link.isCitation && (strong || this.isCitationHeuristicLink(link))) {
                 link.isCitation = true;
             }
-            // Optional conservative override: if model marked as citation but everything looks generic, downgrade
-            // Only apply when no numbers and no evidence terms present to reduce false negatives
             const generic = this._strongGenericSignal(link.text, link.context, link.url);
-            if (link.isCitation && generic) {
+            if (link.isCitation && generic && !(link.features && link.features.anchorHasNumber)) {
                 link.isCitation = false;
             }
         });
+    },
+
+    /**
+     * Primary heuristic using link object and derived features
+     */
+    isCitationHeuristicLink(link) {
+        const context = link.context || '';
+        const text = link.text || '';
+        const url = link.url || '';
+        const f = link.features || {};
+
+        // If the anchor itself has a number, treat as citation
+        if (f.anchorHasNumber) return true;
+
+        // If sentence has unlinked numbers, and link plausibly points to a source, treat as citation
+        const hasUnlinked = (f.unlinkedNumbers || []).length > 0;
+        if (hasUnlinked) {
+            const plausible = this._plausibleSource(text, url);
+            if (plausible) return true;
+        }
+
+        // Fall back to previous heuristic
+        return this.isCitationHeuristic(context, text, url);
+    },
+
+    _plausibleSource(linkText, url) {
+        const t = (linkText || '').toLowerCase();
+        const u = (url || '').toLowerCase();
+        const statWords = ['increase', 'decrease', 'percent', 'percentage', 'statistics', 'report', 'study', 'research', 'survey', 'data'];
+        const urlHints = ['stats', 'statistics', '/research', '/study', '/report', 'whitepaper', '.pdf', '/press'];
+        return statWords.some(w => t.includes(w)) || urlHints.some(h => u.includes(h));
     },
 
     /**

@@ -359,24 +359,21 @@ const AgentManager = {
      * @returns {Promise<Object>} Relevance check result
      */
     async checkLinkRelevance(link, pageContent) {
-        const prompt = `Task: Decide if the anchor text reasonably describes or relates to the linked page's content.
+        const prompt = `Decide if the anchor text accurately describes the linked page based ONLY on the excerpt.
 
-Anchor Text: ${link.text}
-Link URL: ${link.url}
+Anchor: ${link.text}
+URL: ${link.url}
 
-Page Content (excerpt):
+Excerpt:
 ${pageContent.text}
 
-Rules
-- Use only the provided content excerpt.
-- True if the anchor text closely matches the page's topic/claims; otherwise false.
+Decision (strict)
+- true: key terms in the anchor (entities, topic, claim) are clearly present in the excerpt.
+- false: the excerpt is about a different topic or lacks anchor terms.
+No external knowledge, no guessing.
 
 Output (JSON only):
-{
-  "isRelevant": true|false,
-  "reasoning": "1 short sentence (<=160 chars)"
-}
-No prose, no extra keys.`;
+{"isRelevant": true|false, "reasoning": "<=140 chars"}`;
 
         const response = await this._chatCompletion({
             model: 'gpt-5-mini',
@@ -427,32 +424,28 @@ No prose, no extra keys.`;
             // Use direct page content
             const secondarySourceWarning = this.detectSecondarySource(pageContent, link.context);
 
-            prompt = `Task: Determine if the link supports the claim in context using the provided page content.
+            prompt = `Decide if the link supports the claim in the given context using ONLY the provided page excerpt.
 
 Context: ${link.context}
-Link Text: ${link.text}
-Link URL: ${link.url}
+Anchor: ${link.text}
+URL: ${link.url}
 
-Page Content (excerpt):
+Excerpt:
 ${pageContent.text}
 
-Links on Page (sample):
+Page Links (sample):
 ${pageContent.links.slice(0, 10).map(l => `- ${l.text} -> ${l.url}`).join('\n')}
 
-Decision Rules
-1) Correct if key facts in the context (numbers, entities, quotes, findings) appear in the page content or close paraphrase without contradiction.
-2) Incorrect if key facts are absent, contradicted, or the page is about a different topic.
-3) ${secondarySourceWarning ? 'If this looks like a secondary source, prefer the primary source if visible among the links.' : 'If the page appears to cite another source, note it.'}
-4) If you mark as correct, include the exact quote (verbatim) from the provided content; otherwise leave exactQuote null.
+Rules (strict)
+1) TRUE only if the excerpt contains the key facts from context (numbers, named entities, quotes, findings) with the same values; close paraphrase allowed.
+2) If context mentions a number/percent, the SAME value must appear in the excerpt for TRUE.
+3) FALSE if the facts are missing/contradicted or the page is about a different topic.
+4) Return an exactQuote verbatim from the excerpt when TRUE; else null.
+5) ${secondarySourceWarning ? 'If the page is a secondary source and clearly links to the primary, set suggestedUrl to that primary link.' : 'If the page obviously cites a primary source in links, set suggestedUrl to it.'}
+6) No external knowledge. No hedging.
 
-Output (JSON only):
-{
-  "isCorrect": true|false,
-  "reasoning": "1-2 sentences (<=240 chars). Start with whether key facts were found.",
-  "exactQuote": "Verbatim sentence(s) from the excerpt if isCorrect=true, else null",
-  "suggestedUrl": "Primary source URL if clearly present in the listed links, else null"
-}
-No prose, no extra keys.`;
+Output JSON only:
+{"isCorrect": true|false, "reasoning": "<=240 chars", "exactQuote": "..."|null, "suggestedUrl": "URL or null"}`;
         } else {
             // No content available
             return {
