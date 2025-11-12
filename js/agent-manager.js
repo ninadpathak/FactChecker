@@ -308,45 +308,48 @@ const AgentManager = {
         }
 
         const data = await response.json();
-        let html = data.contents;
 
-        // Fast pre-cleaning: remove large unwanted sections before parsing
-        html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-                   .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-                   .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
-                   .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
-                   .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
-                   .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
-
-        // Extract just the body content before parsing
-        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-        if (bodyMatch) {
-            html = bodyMatch[1];
+        // Prefer server-side extracted text to avoid transferring full HTML
+        if (data && (typeof data.text === 'string')) {
+            const textContent = data.text.substring(0, 3000);
+            const links = Array.isArray(data.links) ? data.links.slice(0, 10) : [];
+            return { text: textContent, links };
         }
 
-        // Parse only the cleaned body content
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
-        const container = doc.body.firstChild;
+        // Fallback: old behavior if server returned raw HTML (legacy)
+        if (data && typeof data.contents === 'string') {
+            let html = data.contents;
 
-        // Remove remaining unwanted elements
-        ['aside', 'svg', 'noscript'].forEach(tag => {
-            container.querySelectorAll(tag).forEach(el => el.remove());
-        });
+            html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                       .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+                       .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
+                       .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
+                       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
 
-        // Extract main content (prefer article, main, or use container)
-        const mainContent = container.querySelector('article, main, [role="main"]') || container;
+            const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+            if (bodyMatch) html = bodyMatch[1];
 
-        // Extract text more efficiently
-        const textContent = (mainContent.innerText || mainContent.textContent).substring(0, 3000);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+            const container = doc.body.firstChild;
 
-        // Extract only first 10 links (we only use up to 10 anyway)
-        const links = Array.from(mainContent.querySelectorAll('a[href]'))
-            .slice(0, 10)
-            .map(a => ({ text: a.textContent.trim(), url: a.href }))
-            .filter(l => l.text && l.url);
+            ['aside', 'svg', 'noscript'].forEach(tag => {
+                container.querySelectorAll(tag).forEach(el => el.remove());
+            });
 
-        return { text: textContent, links };
+            const mainContent = container.querySelector('article, main, [role="main"]') || container;
+            const textContent = (mainContent.innerText || mainContent.textContent).substring(0, 3000);
+            const links = Array.from(mainContent.querySelectorAll('a[href]'))
+                .slice(0, 10)
+                .map(a => ({ text: a.textContent.trim(), url: a.href }))
+                .filter(l => l.text && l.url);
+
+            return { text: textContent, links };
+        }
+
+        // If neither format is available
+        return { text: '', links: [] };
     },
 
     /**

@@ -76,14 +76,18 @@ export async function onRequest(context) {
             });
         }
 
-        // Get the content
-        const contents = await response.text();
+        // Get the raw HTML
+        const html = await response.text();
 
-        // Return in the same format as AllOrigins for compatibility
+        // Extract readable text and a small sample of links server-side
+        const { text, links } = extractTextAndLinks(html, response.url || targetUrl);
+
+        // Return text-only payload with status metadata
         return new Response(JSON.stringify({
-            contents: contents,
+            text,
+            links,
             status: {
-                url: targetUrl,
+                url: response.url || targetUrl,
                 content_type: response.headers.get('content-type'),
                 http_code: response.status
             }
@@ -109,5 +113,79 @@ export async function onRequest(context) {
                 'Access-Control-Allow-Origin': '*'
             }
         });
+    }
+}
+
+/**
+ * Very lightweight HTML -> text extractor suitable for Workers
+ * - Strips scripts/styles/nav/header/footer/iframes
+ * - Extracts body content if present
+ * - Converts block tags to whitespace and collapses
+ * - Attempts basic entity decoding for common entities
+ * Also extracts a small sample of page links and resolves them absolute
+ */
+function extractTextAndLinks(rawHtml, baseUrl) {
+    try {
+        if (!rawHtml || typeof rawHtml !== 'string') {
+            return { text: '', links: [] };
+        }
+
+        let html = rawHtml;
+
+        // Remove comments first to avoid confusing other regexes
+        html = html.replace(/<!--([\s\S]*?)-->/g, '');
+
+        // Remove non-content blocks
+        html = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+            .replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, ' ')
+            .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+            .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+            .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+            .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ')
+            .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, ' ');
+
+        // Focus on body if present
+        const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        if (bodyMatch) html = bodyMatch[1];
+
+        // Extract a small sample of on-page links (first 10)
+        const links = [];
+        const anchorRegex = /<a\s+[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+        let m;
+        const stripTags = s => String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        while ((m = anchorRegex.exec(html)) && links.length < 10) {
+            try {
+                const href = m[1];
+                const text = stripTags(m[2]);
+                if (!href || !text) continue;
+                const abs = new URL(href, baseUrl).toString();
+                links.push({ text, url: abs });
+            } catch (_) { /* ignore bad URLs */ }
+        }
+
+        // Convert block-level tags to newlines to keep some structure
+        html = html
+            .replace(/<(\/?)(p|div|section|article|main|ul|ol|li|h\d|br|tr|table|thead|tbody|footer|header)[^>]*>/gi, '\n')
+            // Remove any remaining tags
+            .replace(/<[^>]+>/g, ' ');
+
+        // Decode a handful of common entities
+        const decodeEntities = (s) => s
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+
+        // Collapse whitespace and trim; keep a generous excerpt
+        let text = decodeEntities(html).replace(/\s+/g, ' ').trim();
+        if (text.length > 5000) text = text.slice(0, 5000);
+
+        return { text, links };
+    } catch (e) {
+        return { text: '', links: [] };
     }
 }

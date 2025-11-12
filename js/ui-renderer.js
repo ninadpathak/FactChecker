@@ -35,15 +35,18 @@ const UIRenderer = {
                 </tr>
             </thead>
             <tbody id="verification-tbody">
-                ${links.map((link, index) => `
+                ${links.map((link, index) => {
+                    const url = String(link.url || '');
+                    const display = url.length > 80 ? url.slice(0, 80) + '…' : url;
+                    return `
                     <tr data-index="${index}">
                         <td>${index + 1}</td>
-                        <td><a href="${this.escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="${this.escapeHtml(link.url)}">${this.escapeHtml(link.url)}</a></td>
+                        <td><a class="link-preview" href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="${this.escapeHtml(url)}">${this.escapeHtml(display)}</a></td>
                         <td><span class="link-type ${link.isCitation ? 'citation' : 'regular'}">${link.isCitation ? 'Citation' : 'Link'}</span></td>
                         <td><span class="status pending">Ready</span></td>
                         <td>-</td>
                     </tr>
-                `).join('')}
+                `;}).join('')}
             </tbody>
         `;
 
